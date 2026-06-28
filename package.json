@@ -1,0 +1,26 @@
+{
+  "name": "evm-handler",
+  "version": "1.0.0",
+  "description": "Production-grade EVM Transaction Executor for SkillWallet",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "bun run typecheck"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "viem": "^2.21.0",
+    "zod": "^3.24.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/bun": "^1.2.0"
+  }
+}

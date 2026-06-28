@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────
+# EVM Transaction Executor — Docker Compose
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f
+#   docker compose down
+#
+# NOTE: .env file must exist in this directory with all
+# required environment variables. See .env.example.
+# ─────────────────────────────────────────────────────────
+
+services:
+  executor:
+    build: .
+    container_name: evm-executor
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

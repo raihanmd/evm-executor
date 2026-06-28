@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Environment (secrets never in image)
+.env
+.env.*
+
+# Node
+node_modules
+
+# Build artifacts
+dist
+
+# Local
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
