@@ -18,9 +18,7 @@ Scheduler → Strategy Engine → Calldata Builder → Executor → Signer → B
 |-------|-----------|----------------|
 | 1 | Internal network only | Deployment-level isolation |
 | 2 | API key authentication | `Authorization: Bearer <key>` |
-| 3 | Request signing | HMAC-SHA256 of timestamp + body |
-| 4 | Replay protection | 30s timestamp window |
-| 5 | Idempotency | `X-Request-ID` deduplication |
+| 3 | Idempotency | `X-Request-ID` deduplication |
 | 6 | Chain whitelist | Only configured chain IDs accepted |
 | 7 | Contract whitelist | Per-chain destination allowlist |
 | 8 | Native value restriction | Blocks native currency transfers unless enabled |
@@ -52,8 +50,6 @@ Future backends can be added without changing the public API:
 **Headers:**
 ```
 Authorization: Bearer <api_key>
-X-Timestamp: <unix_ms>
-X-Signature: <hmac_hex>
 X-Request-ID: <uuid> (optional, for idempotency)
 ```
 
@@ -91,7 +87,6 @@ Copy `.env.example` to `.env` and configure:
 |----------|-------------|
 | `PORT` | Server port (default: 3000) |
 | `API_KEY` | Bearer token for authentication |
-| `HMAC_SECRET` | Secret key for request signing |
 | `PRIVATE_KEY` | EVM private key (0x-prefixed) |
 | `RPC_URL_<chainId>` | RPC endpoint per chain |
 | `ALLOWED_CHAINS` | Comma-separated chain IDs |
@@ -177,11 +172,12 @@ cd /opt/evm-executor
 ```bash
 cp .env.example .env
 # Edit .env with production values:
-#   API_KEY / HMAC_SECRET / PRIVATE_KEY  — generated via openssl rand -hex 32
-#   RPC_URL_<chainId>                     — your private RPC endpoint
-#   ALLOWED_CHAINS                        — only what you need
-#   CONTRACTS_<chainId>                   — restrict destination contracts
-#   ALLOW_NATIVE=0                        — keep disabled unless required
+#   API_KEY                              — generated via openssl rand -hex 32
+#   PRIVATE_KEY                          — EVM private key (0x-prefixed)
+#   RPC_URL_<chainId>                    — your private RPC endpoint
+#   ALLOWED_CHAINS                       — only what you need
+#   CONTRACTS_<chainId>                  — restrict destination contracts
+#   ALLOW_NATIVE=0                       — keep disabled unless required
 nano .env
 ```
 
@@ -201,12 +197,10 @@ curl http://localhost:3000/health
 # Logs
 docker compose logs -f
 
-# Test a ping (requires valid API key + HMAC)
+# Test a ping
 curl -s -X POST http://localhost:3000/v1/evm/execute \
   -H "Authorization: Bearer $(grep API_KEY .env | cut -d= -f2)" \
   -H "Content-Type: application/json" \
-  -H "X-Timestamp: $(date +%s%3N)" \
-  -H "X-Signature: $(echo -n "$(date +%s%3N)$(echo '{"chainId":97,"to":"0x...","value":"0","data":"0x"}')" | openssl dgst -sha256 -hmac "$(grep HMAC_SECRET .env | cut -d= -f2)" | sed 's/^.* //')" \
   -d '{"chainId":97,"to":"0x...","value":"0","data":"0x"}'
 ```
 

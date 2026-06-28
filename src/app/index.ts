@@ -3,7 +3,6 @@ import type { AppEnv } from "../types/hono.ts";
 import type { EnvConfig } from "../config/index.ts";
 import { createLogger } from "../logger/index.ts";
 import { authMiddleware } from "../middleware/auth.ts";
-import { signatureMiddleware } from "../middleware/signature.ts";
 import { idempotencyMiddleware } from "../middleware/idempotency.ts";
 import { rateLimitMiddleware } from "../middleware/rate-limit.ts";
 import { payloadSizeMiddleware } from "../middleware/payload-size.ts";
@@ -25,9 +24,6 @@ export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv
 
   // Layer 2 — API Authentication (before expensive operations)
   app.use(authMiddleware(config));
-
-  // Layer 3+4 — HMAC Signature + Replay Protection
-  app.use(signatureMiddleware(config));
 
   // Layer 12 — Rate Limiting
   app.use(rateLimitMiddleware(config));

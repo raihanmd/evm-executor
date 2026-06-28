@@ -7,7 +7,6 @@ export interface EnvConfig {
   port: number;
   host: string;
   apiKey: string;
-  hmacSecret: string;
   privateKey: Address;
   chains: Map<number, ChainConfig>;
   allowNative: boolean;
@@ -98,11 +97,6 @@ export function loadConfig(): EnvConfig {
     throw new InternalError("API_KEY is required");
   }
 
-  const rawHmacSecret = env["HMAC_SECRET"];
-  if (!rawHmacSecret || rawHmacSecret.trim() === "") {
-    throw new InternalError("HMAC_SECRET is required");
-  }
-
   const rawPrivateKey = env["PRIVATE_KEY"];
   if (!rawPrivateKey || rawPrivateKey.trim() === "") {
     throw new InternalError("PRIVATE_KEY is required");
@@ -135,7 +129,6 @@ export function loadConfig(): EnvConfig {
     port: Number.parseInt(env["PORT"] ?? "3000", 10),
     host: env["HOST"] ?? "0.0.0.0",
     apiKey: rawApiKey.trim(),
-    hmacSecret: rawHmacSecret.trim(),
     privateKey: rawPrivateKey.trim() as Address,
     chains,
     allowNative,
