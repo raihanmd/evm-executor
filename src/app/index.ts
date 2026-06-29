@@ -21,6 +21,8 @@ export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv
   // Global error handler (must be first)
   app.onError(errorHandler);
 
+  app.get("/health", (c) => c.json({ status: "ok" }));
+
   // Layer 1 — Internal service only: this is enforced by deployment (private network)
   // Layer 11 — Payload size check (before parsing)
   app.use(payloadSizeMiddleware(config));
@@ -47,9 +49,6 @@ export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv
 
   const txLogRouter = createTxLogRouter(config, signer);
   app.route("/v1/tx-log", txLogRouter);
-
-  // Health check
-  app.get("/health", (c) => c.json({ status: "ok" }));
 
   logger.info("Application initialized");
   return app;
