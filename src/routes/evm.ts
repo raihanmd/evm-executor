@@ -3,9 +3,10 @@ import type { AppEnv } from "../types/hono.ts";
 import type { EnvConfig } from "../config/index.ts";
 import type { SignerAdapter } from "../signer/types.ts";
 import { ExecuteService } from "../services/execute.ts";
-import { type Address, type Hex, type AbiParameter, getAddress, encodeFunctionData } from "viem";
+import { type Address, type Hex, type AbiParameter, getAddress, encodeFunctionData, decodeFunctionResult } from "viem";
 import { ExecuteRequestBody, ContractCallRequestBody } from "../validators/evm.ts";
 import { ValidationError, ForbiddenError } from "../errors/index.ts";
+import { createPublicClientForChain } from "../rpc/index.ts";
 import { getLogger } from "../logger/index.ts";
 
 /** Parameter names that control fund/asset destination — must equal signer */
@@ -203,6 +204,118 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
     }
 
     return c.json(response, 200);
+  });
+
+  /**
+   * POST /read — Proxy read-only contract call (eth_call).
+   * Same request body as /call, but executes a read instead of a transaction.
+   */
+  router.post("/read", async (c) => {
+    const logger = getLogger();
+    const bodyRaw = c.get("body") ?? (await c.req.json());
+
+    const parsed = ContractCallRequestBody.safeParse(bodyRaw);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      throw new ValidationError(
+        firstError?.message ?? "Invalid request body",
+      );
+    }
+
+    const {
+      chainId,
+      to: rawTo,
+      abi,
+      function: functionName,
+      args: rawArgs,
+    } = parsed.data;
+    const to = rawTo as Address;
+
+    logger.info(
+      { chainId, to, function: functionName, argsCount: rawArgs.length },
+      "Proxy reading contract",
+    );
+
+    // ── Find the function definition in the ABI ──────────────────────
+    const functionAbi = (abi as unknown[]).find(
+      (entry: unknown): entry is Record<string, unknown> =>
+        typeof entry === "object" &&
+        entry !== null &&
+        (entry as Record<string, unknown>).type === "function" &&
+        (entry as Record<string, unknown>).name === functionName,
+    ) as (Record<string, unknown> & { inputs?: AbiParameter[]; outputs?: AbiParameter[] }) | undefined;
+
+    // H-01 + L-01: walk and validate args (same as /call)
+    const signerAddressLower = (await signer.getAddress()).toLowerCase();
+    const args: unknown[] =
+      functionAbi && Array.isArray(functionAbi.inputs)
+        ? functionAbi.inputs.map((input, i) =>
+            walkAndValidate(
+              input as AbiParameter & { components?: readonly AbiParameter[] },
+              rawArgs[i],
+              input.name ?? `arg${i}`,
+              signerAddressLower,
+            ),
+          )
+        : [...rawArgs];
+
+    let data: Hex;
+    try {
+      data = encodeFunctionData({
+        abi: abi as unknown[],
+        functionName,
+        args,
+      });
+    } catch (err) {
+      throw new ValidationError(
+        `Failed to encode calldata: ${err instanceof Error ? err.message : "ABI encoding error"}`,
+      );
+    }
+
+    // ── Perform eth_call ─────────────────────────────────────────────
+    const chainConfig = config.chains.get(chainId);
+    if (!chainConfig) {
+      return c.json({
+        success: false,
+        message: `Chain ${chainId} is not configured`,
+      }, 400);
+    }
+
+    try {
+      const publicClient = createPublicClientForChain(chainConfig);
+      const result = await publicClient.call({
+        to,
+        data,
+      });
+
+      if (!result.data) {
+        return c.json(
+          { success: false, message: "No data returned from contract call" },
+          400,
+        );
+      }
+
+      const outputs = functionAbi?.outputs as AbiParameter[] | undefined;
+      if (!outputs || outputs.length === 0) {
+        return c.json({ success: true, data: null }, 200);
+      }
+
+      const decoded = decodeFunctionResult({
+        abi: abi as unknown[],
+        functionName,
+        data: result.data,
+      });
+
+      return c.json({ success: true, data: decoded }, 200);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Contract read failed";
+      logger.warn(
+        { err, chainId, to, function: functionName },
+        "Contract read failed",
+      );
+      return c.json({ success: false, message }, 400);
+    }
   });
 
   return router;
