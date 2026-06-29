@@ -7,7 +7,10 @@ import { ValidationError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
 import { getLogger } from "../logger/index.ts";
 
-export function createTxLogRouter(_config: EnvConfig, _signer: SignerAdapter): Hono<AppEnv> {
+export function createTxLogRouter(
+  _config: EnvConfig,
+  _signer: SignerAdapter,
+): Hono<AppEnv> {
   const router = new Hono<AppEnv>();
 
   router.post("/", async (c) => {
@@ -40,7 +43,7 @@ export function createTxLogRouter(_config: EnvConfig, _signer: SignerAdapter): H
         action,
         status,
         blockNumber: BigInt(blockNumber),
-        gasUsed: BigInt(gasUsed),
+        gasUsed: BigInt(gasUsed ?? 0n),
         gasPriceWei,
         gasCostBnb,
         gasCostUsd,
@@ -52,7 +55,7 @@ export function createTxLogRouter(_config: EnvConfig, _signer: SignerAdapter): H
         action,
         status,
         blockNumber: BigInt(blockNumber),
-        gasUsed: BigInt(gasUsed),
+        gasUsed: BigInt(gasUsed ?? 0n),
         gasPriceWei,
         gasCostBnb,
         gasCostUsd,

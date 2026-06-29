@@ -2,7 +2,12 @@ import { type Address, getAddress } from "viem";
 import type { EnvConfig } from "../config/index.ts";
 import type { ExecuteRequest, ExecuteResponse } from "../types/index.ts";
 import type { SignerAdapter } from "../signer/types.ts";
-import { estimateFees, estimateGas, getPendingNonce, type FeeEstimation } from "../rpc/index.ts";
+import {
+  estimateFees,
+  estimateGas,
+  getPendingNonce,
+  type FeeEstimation,
+} from "../rpc/index.ts";
 import { getLogger } from "../logger/index.ts";
 
 export class ExecuteService {
@@ -38,7 +43,10 @@ export class ExecuteService {
     // for concurrent identical requests, preventing double broadcast.
     const existing = this.contentCache.get(ck);
     if (existing) {
-      getLogger().info({ key: ck }, "Duplicate content — sharing in-flight/ cached promise");
+      getLogger().info(
+        { key: ck },
+        "Duplicate content — sharing in-flight/ cached promise",
+      );
       return existing;
     }
 
@@ -46,9 +54,7 @@ export class ExecuteService {
     // Must always advance the queue even if executeInner rejects.
     const chainId = req.chainId;
     const prev = this.executionQueues.get(chainId) ?? Promise.resolve();
-    const execution = prev
-      .catch(() => {})
-      .then(() => this.executeInner(req));
+    const execution = prev.catch(() => {}).then(() => this.executeInner(req));
 
     // Cache the promise BEFORE it resolves so concurrent requests
     // share the SAME execution (not just the completed result).
@@ -56,12 +62,23 @@ export class ExecuteService {
     // RPC (>30s) doesn't delete the entry mid-flight when retries are likely.
     this.contentCache.set(ck, execution);
     execution.then(
-      () => setTimeout(() => this.contentCache.delete(ck), ExecuteService.CONTENT_CACHE_TTL),
-      () => setTimeout(() => this.contentCache.delete(ck), ExecuteService.CONTENT_CACHE_TTL),
+      () =>
+        setTimeout(
+          () => this.contentCache.delete(ck),
+          ExecuteService.CONTENT_CACHE_TTL,
+        ),
+      () =>
+        setTimeout(
+          () => this.contentCache.delete(ck),
+          ExecuteService.CONTENT_CACHE_TTL,
+        ),
     );
 
     // Chain queue (handles rejection so next request still runs)
-    this.executionQueues.set(chainId, execution.catch(() => {}).then(() => {}));
+    this.executionQueues.set(
+      chainId,
+      execution.catch(() => {}).then(() => {}),
+    );
 
     return execution;
   }
@@ -69,7 +86,6 @@ export class ExecuteService {
   private async executeInner(req: ExecuteRequest): Promise<ExecuteResponse> {
     const logger = getLogger();
 
-    // Layer 6 — Chain Whitelist
     const chainConfig = this.config.chains.get(req.chainId);
     if (!chainConfig) {
       logger.warn({ chainId: req.chainId }, "Chain not allowed");
@@ -86,23 +102,18 @@ export class ExecuteService {
 
     const value = BigInt(req.value);
 
-    // Layer 9 & 10 — Calldata & Address validation already done in validators
-
     // Get the signer address
     const fromAddress = await this.signer.getAddress();
 
-    // Layer 18 — Nonce: always fetch from RPC
     // (serialized by execute() queue, so each call gets a unique nonce)
     const nonce = await getPendingNonce(chainConfig, fromAddress);
     logger.info({ nonce }, "Fetched pending nonce");
 
-    // Layer 17 — Fee Strategy: auto-detect EIP-1559 vs Legacy
     const feeEstimate = await estimateFees(chainConfig);
     logger.info({ feeModel: feeEstimate.feeModel }, "Fee strategy determined");
 
     const cappedFee = this.applyGasPriceCap(feeEstimate);
 
-    // Layer 16 — Gas Estimation
     // estimateGas throws on failure (call would revert) — catch here and return clean response
     let gas: bigint;
     try {
@@ -152,6 +163,12 @@ export class ExecuteService {
       txHash: result.txHash,
       blockNumber: result.blockNumber,
       status: result.status,
+      gasUsed: result.gasUsed ?? gas.toString(),
+      gasPriceWei: (
+        cappedFee.gasPrice ??
+        cappedFee.maxFeePerGas ??
+        0n
+      ).toString(),
     };
   }
 
@@ -160,9 +177,7 @@ export class ExecuteService {
    * Returns the fee estimate with prices capped. If the cap is 0 (unset),
    * the original estimate is returned unchanged.
    */
-  private applyGasPriceCap(
-    estimate: FeeEstimation,
-  ): FeeEstimation {
+  private applyGasPriceCap(estimate: FeeEstimation): FeeEstimation {
     const capWei = this.config.maxGasPriceWei;
     if (capWei === 0n) return estimate;
     if (estimate.feeModel === "eip1559") {

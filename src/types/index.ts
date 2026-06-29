@@ -14,6 +14,8 @@ export interface ExecuteSuccess {
   txHash: Hash;
   blockNumber?: string;
   status?: "success" | "reverted";
+  gasUsed?: string;
+  gasPriceWei?: string;
 }
 
 /** Failure execution response */
@@ -29,6 +31,7 @@ export interface BroadcastResult {
   txHash: Hash;
   blockNumber?: string;
   status?: "success" | "reverted";
+  gasUsed?: string;
 }
 
 /** Supported fee models */

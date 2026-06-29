@@ -136,8 +136,7 @@ export async function estimateGas(
   } catch (err) {
     // estimateGas failure means the call would revert on-chain.
     // Fallback gas would just burn fees on a known-failing tx — hard-reject instead.
-    const reason =
-      err instanceof Error ? err.message : "Gas estimation failed";
+    const reason = err instanceof Error ? err.message : "Gas estimation failed";
     logger.warn({ err }, "Gas estimation failed — rejecting");
     throw new Error(`Transaction would revert: ${reason}`);
   }
@@ -169,6 +168,7 @@ export async function broadcastAndConfirm(
   txHash: Hex;
   blockNumber?: string;
   status?: "success" | "reverted";
+  gasUsed?: string;
 }> {
   const publicClient = createPublicClientForChain(config);
   const logger = getLogger();
@@ -188,5 +188,6 @@ export async function broadcastAndConfirm(
     txHash,
     blockNumber: receipt.blockNumber?.toString(),
     status: receipt.status,
+    gasUsed: receipt.gasUsed?.toString(),
   };
 }
