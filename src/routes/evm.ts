@@ -13,10 +13,22 @@ import { getLogger } from "../logger/index.ts";
 const SENSITIVE_ADDRESS_PARAMS = new Set(["recipient", "to", "owner", "dst"]);
 const INT_RE = /^u?int(\d+)?$/;
 
+/** Recursively convert BigInt → string so JSON.stringify doesn't throw */
+function jsonSafe(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
+  if (Array.isArray(value)) return value.map(jsonSafe);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, jsonSafe(v)]),
+    );
+  }
+  return value;
+}
+
 /**
  * Recursively walk ABI inputs to:
- *  - H-01: enforce sensitive address args match signer
- *  - L-01: coerce string → BigInt for uint/int args
+ *  - enforce sensitive address args match signer
+ *  - coerce string → BigInt for uint/int args
  *
  * Handles nested tuple(struct)/tuple[] types that NFPM functions use.
  */
@@ -165,7 +177,7 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
         (entry as Record<string, unknown>).name === functionName,
     ) as (Record<string, unknown> & { inputs?: AbiParameter[] }) | undefined;
 
-    // H-01 + L-01: Single recursive walk — handles both scalar and tuple(struct) params
+    // Single recursive walk — handles both scalar and tuple(struct) params
     const signerAddressLower = (await signer.getAddress()).toLowerCase();
     const args: unknown[] =
       functionAbi && Array.isArray(functionAbi.inputs)
@@ -245,7 +257,7 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
         (entry as Record<string, unknown>).name === functionName,
     ) as (Record<string, unknown> & { inputs?: AbiParameter[]; outputs?: AbiParameter[] }) | undefined;
 
-    // H-01 + L-01: walk and validate args (same as /call)
+    // Walk and validate args (same as /call)
     const signerAddressLower = (await signer.getAddress()).toLowerCase();
     const args: unknown[] =
       functionAbi && Array.isArray(functionAbi.inputs)
@@ -306,7 +318,7 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
         data: result.data,
       });
 
-      return c.json({ success: true, data: decoded }, 200);
+      return c.json({ success: true, data: jsonSafe(decoded) }, 200);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Contract read failed";

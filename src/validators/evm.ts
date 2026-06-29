@@ -43,7 +43,7 @@ export const ContractCallRequestBody = z.object({
     },
     { message: "Invalid 'to' address" },
   ),
-  value: z.string().regex(/^\d+$/, "value must be a numeric string"),
+  value: z.string().regex(/^\d+$/, "value must be a numeric string").default("0"),
   abi: z.array(z.record(z.unknown())).min(1, "abi must have at least one entry"),
   function: z.string().min(1, "function name is required"),
   args: z.array(z.unknown()).default([]),

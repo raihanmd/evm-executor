@@ -58,7 +58,7 @@ export function idempotencyMiddleware(): MiddlewareHandler {
     // (this means duplicate detection happens even if the first request fails)
     processedRequests.set(key, Date.now());
 
-    // M-03: Do NOT remove the idempotency lock on failure.
+    // Do NOT remove the idempotency lock on failure.
     // If broadcast timed out after the tx was already mined, a retry would
     // use a new nonce and duplicate the tx. The caller must use a new
     // X-Request-ID for retries.

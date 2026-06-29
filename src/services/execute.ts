@@ -9,11 +9,11 @@ export class ExecuteService {
   private readonly config: EnvConfig;
   private readonly signer: SignerAdapter;
 
-  /** M-01: Per-chain execution queue to serialize nonces */
+  /** Per-chain execution queue to serialize nonces */
   private readonly executionQueues = new Map<number, Promise<void>>();
 
   /**
-   * M-03: Content-hash → promise cache for body-based idempotency.
+   * Content-hash → promise cache for body-based idempotency.
    * Stores the in-flight Promise so concurrent identical requests share
    * the same execution — not just the completed result.
    * Entries expire after 30s to prevent unbounded growth.
@@ -34,7 +34,7 @@ export class ExecuteService {
   async execute(req: ExecuteRequest): Promise<ExecuteResponse> {
     const ck = ExecuteService.contentKey(req);
 
-    // M-03: Check cache first — returns the SAME promise (in-flight or resolved)
+    // Check cache first — returns the SAME promise (in-flight or resolved)
     // for concurrent identical requests, preventing double broadcast.
     const existing = this.contentCache.get(ck);
     if (existing) {
@@ -42,7 +42,7 @@ export class ExecuteService {
       return existing;
     }
 
-    // M-01: Serialize execution per chainId to prevent nonce race conditions.
+    // Serialize execution per chainId to prevent nonce race conditions.
     // Must always advance the queue even if executeInner rejects.
     const chainId = req.chainId;
     const prev = this.executionQueues.get(chainId) ?? Promise.resolve();
@@ -50,7 +50,7 @@ export class ExecuteService {
       .catch(() => {})
       .then(() => this.executeInner(req));
 
-    // M-03: Cache the promise BEFORE it resolves so concurrent requests
+    // Cache the promise BEFORE it resolves so concurrent requests
     // share the SAME execution (not just the completed result).
     // TTL starts AFTER execution settles — not from insertion — so a slow
     // RPC (>30s) doesn't delete the entry mid-flight when retries are likely.
@@ -100,11 +100,10 @@ export class ExecuteService {
     const feeEstimate = await estimateFees(chainConfig);
     logger.info({ feeModel: feeEstimate.feeModel }, "Fee strategy determined");
 
-    // L-02: Enforce gas price cap to prevent overpaying during congestion
     const cappedFee = this.applyGasPriceCap(feeEstimate);
 
     // Layer 16 — Gas Estimation
-    // M-02: estimateGas throws on failure (call would revert) — catch here and return clean response
+    // estimateGas throws on failure (call would revert) — catch here and return clean response
     let gas: bigint;
     try {
       gas = await estimateGas(
