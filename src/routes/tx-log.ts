@@ -5,6 +5,7 @@ import type { SignerAdapter } from "../signer/types.ts";
 import { TxLogBody } from "../validators/tx-log.ts";
 import { ValidationError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
+import { jsonSafe } from "../lib/json-safe.ts";
 import { getLogger } from "../logger/index.ts";
 
 export function createTxLogRouter(
@@ -64,7 +65,7 @@ export function createTxLogRouter(
 
     logger.info({ txHash, id: txLog.id }, "Transaction logged");
 
-    return c.json({ success: true, data: txLog }, 200);
+    return c.json({ success: true, data: jsonSafe(txLog) }, 200);
   });
 
   return router;

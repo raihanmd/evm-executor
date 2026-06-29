@@ -5,6 +5,7 @@ import type { SignerAdapter } from "../signer/types.ts";
 import { PoolUpsertBody } from "../validators/pools.ts";
 import { ValidationError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
+import { jsonSafe } from "../lib/json-safe.ts";
 import { getLogger } from "../logger/index.ts";
 
 export function createPoolsRouter(_config: EnvConfig, _signer: SignerAdapter): Hono<AppEnv> {
@@ -14,7 +15,7 @@ export function createPoolsRouter(_config: EnvConfig, _signer: SignerAdapter): H
     const logger = getLogger();
     const pools = await prisma.pool.findMany({ orderBy: { createdAt: "desc" } });
     logger.info({ count: pools.length }, "Listed pools");
-    return c.json({ success: true, data: pools }, 200);
+    return c.json({ success: true, data: jsonSafe(pools) }, 200);
   });
 
   router.post("/upsert", async (c) => {
@@ -39,7 +40,7 @@ export function createPoolsRouter(_config: EnvConfig, _signer: SignerAdapter): H
 
     logger.info({ poolId: pool.id, address }, "Pool upserted");
 
-    return c.json({ success: true, data: pool }, 200);
+    return c.json({ success: true, data: jsonSafe(pool) }, 200);
   });
 
   return router;

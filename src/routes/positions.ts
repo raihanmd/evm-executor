@@ -12,6 +12,7 @@ import {
 } from "../validators/positions.ts";
 import { ValidationError, NotFoundError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
+import { jsonSafe } from "../lib/json-safe.ts";
 import { getLogger } from "../logger/index.ts";
 import type { Prisma } from "@prisma/client";
 
@@ -100,7 +101,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
 
     logger.info({ positionId: position.id, tokenId }, "Position recorded");
 
-    return c.json({ success: true, data: position }, 200);
+    return c.json({ success: true, data: jsonSafe(position) }, 200);
   });
 
   router.patch("/:tokenId/check", async (c) => {
@@ -180,7 +181,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       );
     }
 
-    return c.json({ success: true, data: { ...updated, oorDurationMinutes } }, 200);
+    return c.json({ success: true, data: jsonSafe({ ...updated, oorDurationMinutes }) }, 200);
   });
 
   router.post("/:tokenId/rebalance", async (c) => {
@@ -278,7 +279,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       "Rebalance complete",
     );
 
-    return c.json({ success: true, data: { closedPosition, newPosition: newPosRecord } }, 200);
+    return c.json({ success: true, data: jsonSafe({ closedPosition, newPosition: newPosRecord }) }, 200);
   });
 
   router.post("/:tokenId/exit", async (c) => {
@@ -343,7 +344,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       "Position exited",
     );
 
-    return c.json({ success: true, data: updated }, 200);
+    return c.json({ success: true, data: jsonSafe(updated) }, 200);
   });
 
   router.get("/", async (c) => {
@@ -369,7 +370,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
 
     logger.info({ count: positions.length }, "Listed positions");
 
-    return c.json({ success: true, data: positions }, 200);
+    return c.json({ success: true, data: jsonSafe(positions) }, 200);
   });
 
   router.get("/:tokenId", async (c) => {
@@ -398,7 +399,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       take: checksLimit ?? 20,
     });
 
-    return c.json({ success: true, data: { ...position, checks } }, 200);
+    return c.json({ success: true, data: jsonSafe({ ...position, checks }) }, 200);
   });
 
   return router;

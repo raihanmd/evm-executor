@@ -8,22 +8,11 @@ import { ExecuteRequestBody, ContractCallRequestBody } from "../validators/evm.t
 import { ValidationError, ForbiddenError } from "../errors/index.ts";
 import { createPublicClientForChain } from "../rpc/index.ts";
 import { getLogger } from "../logger/index.ts";
+import { jsonSafe } from "../lib/json-safe.ts";
 
 /** Parameter names that control fund/asset destination — must equal signer */
 const SENSITIVE_ADDRESS_PARAMS = new Set(["recipient", "to", "owner", "dst"]);
 const INT_RE = /^u?int(\d+)?$/;
-
-/** Recursively convert BigInt → string so JSON.stringify doesn't throw */
-function jsonSafe(value: unknown): unknown {
-  if (typeof value === "bigint") return value.toString();
-  if (Array.isArray(value)) return value.map(jsonSafe);
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, jsonSafe(v)]),
-    );
-  }
-  return value;
-}
 
 /**
  * Recursively walk ABI inputs to:
