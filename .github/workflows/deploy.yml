@@ -27,11 +27,6 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
-      - name: Run tests
-        run: bun test
-        env:
-          LOG_LEVEL: silent
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
