@@ -1,4 +1,4 @@
-import type { Address, Hash, Hex } from "viem";
+import type { Address, Hash, Hex, Log } from "viem";
 
 /** Incoming request to execute an EVM transaction */
 export interface ExecuteRequest {
@@ -16,6 +16,7 @@ export interface ExecuteSuccess {
   status?: "success" | "reverted";
   gasUsed?: string;
   gasPriceWei?: string;
+  logs?: Log[];
 }
 
 /** Failure execution response */
@@ -32,6 +33,7 @@ export interface BroadcastResult {
   blockNumber?: string;
   status?: "success" | "reverted";
   gasUsed?: string;
+  logs?: Log[];
 }
 
 /** Supported fee models */

@@ -102,6 +102,7 @@ export class PrivateKeySigner implements SignerAdapter {
       txHash: result.txHash,
       blockNumber: result.blockNumber,
       status: result.status,
+      logs: result.logs,
     };
   }
 }

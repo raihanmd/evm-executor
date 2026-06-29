@@ -169,6 +169,7 @@ export class ExecuteService {
         cappedFee.maxFeePerGas ??
         0n
       ).toString(),
+      logs: result.logs,
     };
   }
 

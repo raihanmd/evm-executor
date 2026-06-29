@@ -5,6 +5,7 @@ import {
   type Address,
   type Chain,
   type Hex,
+  type Log,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { bsc, bscTestnet } from "viem/chains";
@@ -169,6 +170,7 @@ export async function broadcastAndConfirm(
   blockNumber?: string;
   status?: "success" | "reverted";
   gasUsed?: string;
+  logs?: Log[];
 }> {
   const publicClient = createPublicClientForChain(config);
   const logger = getLogger();
@@ -189,5 +191,6 @@ export async function broadcastAndConfirm(
     blockNumber: receipt.blockNumber?.toString(),
     status: receipt.status,
     gasUsed: receipt.gasUsed?.toString(),
+    logs: receipt.logs,
   };
 }

@@ -3,8 +3,19 @@ import type { AppEnv } from "../types/hono.ts";
 import type { EnvConfig } from "../config/index.ts";
 import type { SignerAdapter } from "../signer/types.ts";
 import { ExecuteService } from "../services/execute.ts";
-import { type Address, type Hex, type AbiParameter, getAddress, encodeFunctionData, decodeFunctionResult } from "viem";
-import { ExecuteRequestBody, ContractCallRequestBody } from "../validators/evm.ts";
+import {
+  type Address,
+  type Hex,
+  type AbiParameter,
+  getAddress,
+  encodeFunctionData,
+  decodeFunctionResult,
+  parseEventLogs,
+} from "viem";
+import {
+  ExecuteRequestBody,
+  ContractCallRequestBody,
+} from "../validators/evm.ts";
 import { ValidationError, ForbiddenError } from "../errors/index.ts";
 import { createPublicClientForChain } from "../rpc/index.ts";
 import { getLogger } from "../logger/index.ts";
@@ -30,7 +41,12 @@ function walkAndValidate(
   const type = input.type;
 
   // tuple struct — recurse into components
-  if (type === "tuple" && input.components && typeof value === "object" && value !== null) {
+  if (
+    type === "tuple" &&
+    input.components &&
+    typeof value === "object" &&
+    value !== null
+  ) {
     const obj = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const c of input.components) {
@@ -48,7 +64,9 @@ function walkAndValidate(
   if (type === "tuple[]" && input.components && Array.isArray(value)) {
     return value.map((item, i) =>
       walkAndValidate(
-        { ...input, type: "tuple" } as AbiParameter & { components?: readonly AbiParameter[] },
+        { ...input, type: "tuple" } as AbiParameter & {
+          components?: readonly AbiParameter[];
+        },
         item,
         `${path}[${i}]`,
         signerAddrLower,
@@ -57,7 +75,11 @@ function walkAndValidate(
   }
 
   // uint[]/int[] — coerce each element to BigInt
-  if (Array.isArray(value) && /\[\]$/.test(type) && INT_RE.test(type.slice(0, -2))) {
+  if (
+    Array.isArray(value) &&
+    /\[\]$/.test(type) &&
+    INT_RE.test(type.slice(0, -2))
+  ) {
     return value.map((v) => (typeof v === "string" ? BigInt(v) : v));
   }
 
@@ -66,12 +88,18 @@ function walkAndValidate(
     try {
       return BigInt(value);
     } catch {
-      throw new ValidationError(`Invalid integer at '${path}': cannot parse "${value}" as BigInt`);
+      throw new ValidationError(
+        `Invalid integer at '${path}': cannot parse "${value}" as BigInt`,
+      );
     }
   }
 
   // scalar address — check if sensitive, must equal signer
-  if (type === "address" && value != null && SENSITIVE_ADDRESS_PARAMS.has((input.name ?? "").toLowerCase())) {
+  if (
+    type === "address" &&
+    value != null &&
+    SENSITIVE_ADDRESS_PARAMS.has((input.name ?? "").toLowerCase())
+  ) {
     let addr: string;
     try {
       addr = getAddress(value as string).toLowerCase();
@@ -88,7 +116,10 @@ function walkAndValidate(
   return value;
 }
 
-export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv> {
+export function createEvmRoutes(
+  config: EnvConfig,
+  signer: SignerAdapter,
+): Hono<AppEnv> {
   const router = new Hono<AppEnv>();
   const executeService = new ExecuteService(config, signer);
 
@@ -96,15 +127,13 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
     const logger = getLogger();
 
     // Get the body (already parsed by signature middleware, or parse directly)
-    const bodyRaw = c.get("body") ?? await c.req.json();
+    const bodyRaw = c.get("body") ?? (await c.req.json());
 
     // Validate with Zod
     const parsed = ExecuteRequestBody.safeParse(bodyRaw);
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(
-        firstError?.message ?? "Invalid request body",
-      );
+      throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
     const { chainId, to: rawTo, value, data: rawData } = parsed.data;
@@ -137,9 +166,7 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
     const parsed = ContractCallRequestBody.safeParse(bodyRaw);
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(
-        firstError?.message ?? "Invalid request body",
-      );
+      throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
     const {
@@ -204,7 +231,21 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
       return c.json(response, 400);
     }
 
-    return c.json(response, 200);
+    let events: unknown[] = [];
+    if (response.logs && response.logs.length > 0) {
+      try {
+        events = parseEventLogs({
+          abi: abi as Parameters<typeof parseEventLogs>[0]["abi"],
+          logs: response.logs,
+        });
+      } catch (err) {
+        logger.warn({ err }, "Failed to decode event logs from receipt");
+      }
+    }
+
+    const { logs: _rawLogs, ...rest } = response;
+
+    return c.json({ ...rest, events: jsonSafe(events) }, 200);
   });
 
   /**
@@ -218,9 +259,7 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
     const parsed = ContractCallRequestBody.safeParse(bodyRaw);
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(
-        firstError?.message ?? "Invalid request body",
-      );
+      throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
     const {
@@ -244,7 +283,12 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
         entry !== null &&
         (entry as Record<string, unknown>).type === "function" &&
         (entry as Record<string, unknown>).name === functionName,
-    ) as (Record<string, unknown> & { inputs?: AbiParameter[]; outputs?: AbiParameter[] }) | undefined;
+    ) as
+      | (Record<string, unknown> & {
+          inputs?: AbiParameter[];
+          outputs?: AbiParameter[];
+        })
+      | undefined;
 
     // Walk and validate args (same as /call)
     const signerAddressLower = (await signer.getAddress()).toLowerCase();
@@ -276,10 +320,13 @@ export function createEvmRoutes(config: EnvConfig, signer: SignerAdapter): Hono<
     // ── Perform eth_call ─────────────────────────────────────────────
     const chainConfig = config.chains.get(chainId);
     if (!chainConfig) {
-      return c.json({
-        success: false,
-        message: `Chain ${chainId} is not configured`,
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          message: `Chain ${chainId} is not configured`,
+        },
+        400,
+      );
     }
 
     try {
