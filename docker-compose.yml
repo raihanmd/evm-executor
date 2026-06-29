@@ -12,7 +12,8 @@
 
 services:
   executor:
-    build: .
+    image: ghcr.io/raihanmd/evm-executor:latest
+    pull_policy: always
     container_name: evm-executor
     restart: unless-stopped
     ports:
