@@ -8,6 +8,9 @@ import { rateLimitMiddleware } from "../middleware/rate-limit.ts";
 import { payloadSizeMiddleware } from "../middleware/payload-size.ts";
 import { errorHandler } from "./error-handler.ts";
 import { createEvmRoutes } from "../routes/evm.ts";
+import { createPositionsRouter } from "../routes/positions.ts";
+import { createPoolsRouter } from "../routes/pools.ts";
+import { createTxLogRouter } from "../routes/tx-log.ts";
 import type { SignerAdapter } from "../signer/types.ts";
 
 export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv> {
@@ -31,9 +34,19 @@ export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv
   // Layer 5 — Idempotency
   app.use(idempotencyMiddleware());
 
-  // Routes
+  // Routes — EVM
   const evmRouter = createEvmRoutes(config, signer);
   app.route("/v1/evm", evmRouter);
+
+  // Routes — LP Position Tracking
+  const positionsRouter = createPositionsRouter(config, signer);
+  app.route("/v1/positions", positionsRouter);
+
+  const poolsRouter = createPoolsRouter(config, signer);
+  app.route("/v1/pools", poolsRouter);
+
+  const txLogRouter = createTxLogRouter(config, signer);
+  app.route("/v1/tx-log", txLogRouter);
 
   // Health check
   app.get("/health", (c) => c.json({ status: "ok" }));

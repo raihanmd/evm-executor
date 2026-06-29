@@ -1,46 +1,58 @@
 # ─────────────────────────────────────────────────────────
-# Stage 1: Install dependencies & compile standalone binary
+# Stage 1: Install dependencies & generate Prisma client
 # ─────────────────────────────────────────────────────────
-FROM oven/bun:alpine AS builder
+FROM oven/bun:1 AS builder
+
+# Prisma engine requires OpenSSL at build time
+RUN apt-get update -y && apt-get install -y openssl ca-certificates tzdata
 
 WORKDIR /app
 
-# Install ALL dependencies (including dev for build)
+# Install ALL dependencies (including dev — prisma CLI is devDep)
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
-# Copy source code
+# Copy Prisma schema + config, then generate client
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+ARG DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+ENV DATABASE_URL=$DATABASE_URL
+RUN bunx prisma generate
+
+# Copy remaining source code
+# (node_modules excluded by .dockerignore, so the installed deps survive)
 COPY . .
 
-# Compile to a single static binary (includes Bun runtime + all deps)
-# --compile produces a standalone executable with no external dependencies
-RUN bun build --compile \
-  src/index.ts \
-  --outfile=/app/evm-executor
-
 # ─────────────────────────────────────────────────────────
-# Stage 2: Minimal runtime image
+# Stage 2: Production runtime image
 # ─────────────────────────────────────────────────────────
-FROM alpine:3.21 AS runtime
+FROM oven/bun:1 AS production
 
-# The compiled Bun binary requires C++ standard libraries at runtime.
-# Also add ca-certificates (HTTPS/RPC) and tzdata (log timestamps).
-RUN apk add --no-cache libstdc++ libgcc ca-certificates tzdata
-
-# Security: non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# openssl for Prisma engine, ca-certificates for HTTPS RPC, tzdata for logs
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+  openssl ca-certificates tzdata \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy ONLY the compiled binary — nothing else
-COPY --from=builder /app/evm-executor ./
+# Install production dependencies only
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production --ignore-scripts
+
+# Copy generated Prisma client from builder (the actual generated code)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy source code
+COPY src ./src
 
 ENV NODE_ENV=production
 
-USER appuser
+# Security: non-root user (oven/bun:1 ships with 'bun' user)
+USER bun
+
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-ENTRYPOINT ["./evm-executor"]
+CMD ["bun", "run", "src/index.ts"]

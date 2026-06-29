@@ -12,7 +12,7 @@
 
 services:
   executor:
-    image: ghcr.io/raihanmd/evm-executor:latest
+    image: ghcr.io/raihanmd/evm-executor:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: evm-executor
     restart: unless-stopped

@@ -1,0 +1,165 @@
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Pool {
+  id              String   @id @default(cuid())
+  chainId         Int
+  address         String
+  token0Address   String
+  token1Address   String
+  token0Symbol    String
+  token1Symbol    String
+  token0Decimals  Int
+  token1Decimals  Int
+  feeTier         Int
+
+  positions       Position[]
+  createdAt       DateTime @default(now())
+
+  @@unique([chainId, address])
+}
+
+model Position {
+  id                  String   @id @default(cuid())
+  chainId             Int
+  tokenId             String
+
+  poolId              String
+  pool                Pool     @relation(fields: [poolId], references: [id])
+
+  status              PositionStatus @default(ACTIVE)
+
+  tickLower           Int
+  tickUpper           Int
+  rangePercent        Int
+  tickAtMint          Int
+
+  deployAmountUsdt     Decimal  @db.Decimal(30, 6)
+  amount0Deposited     String
+  amount1Deposited     String
+  liquidity            String
+
+  swapAmountIn         String?
+  swapAmountOutMin     String?
+  swapAmountOutActual  String?
+
+  mintTxHash           String
+  mintBlockNumber      BigInt
+  mintedAt             DateTime
+
+  lastCheckedAt        DateTime?
+  lastInRangeAt        DateTime?
+  oorSince             DateTime?
+
+  exitReason           ExitReason?
+  closeTxHash          String?
+  closeBlockNumber     BigInt?
+  closedAt             DateTime?
+  amount0Withdrawn     String?
+  amount1Withdrawn     String?
+  feesCollected0       String?
+  feesCollected1       String?
+  finalSweepAmountUsdt Decimal? @db.Decimal(30, 6)
+  pnlUsdt              Decimal? @db.Decimal(30, 6)
+  pnlPercent           Decimal? @db.Decimal(10, 4)
+
+  previousPositionId   String?  @unique
+  previousPosition     Position? @relation("Lineage", fields: [previousPositionId], references: [id])
+  nextPosition         Position? @relation("Lineage")
+  rootPositionId       String?
+
+  configSnapshot       Json
+  recipientWallet      String
+
+  checks               PositionCheck[]
+  txLogs               TxLog[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([chainId, tokenId])
+}
+
+model PositionCheck {
+  id              String   @id @default(cuid())
+  positionId      String
+  position        Position @relation(fields: [positionId], references: [id])
+
+  checkedAt       DateTime @default(now())
+  blockNumber     BigInt
+  currentTick     Int
+  inRange         Boolean
+
+  currentValueUsdt Decimal @db.Decimal(30, 6)
+  drawdownPct      Decimal @db.Decimal(10, 4)
+
+  poolTvl          Decimal @db.Decimal(30, 6)
+  poolVolume24h    Decimal @db.Decimal(30, 6)
+  poolFeesApr      Decimal @db.Decimal(10, 4)
+
+  decision         CheckDecision
+  decisionReason   String
+}
+
+model TxLog {
+  id            String   @id @default(cuid())
+  positionId    String?
+  position      Position? @relation(fields: [positionId], references: [id])
+
+  txHash        String   @unique
+  action        TxAction
+  status        TxStatus
+
+  blockNumber   BigInt?
+  gasUsed       BigInt?
+  gasPriceWei   String?
+  gasCostBnb    Decimal? @db.Decimal(20, 10)
+  gasCostUsd    Decimal? @db.Decimal(20, 6)
+
+  createdAt     DateTime @default(now())
+}
+
+enum PositionStatus {
+  ACTIVE
+  OUT_OF_RANGE
+  REBALANCING
+  CLOSED
+  EXITED
+  FAILED
+}
+
+enum ExitReason {
+  OOR_TIMEOUT
+  DRAWDOWN_STOP
+  RUG_TVL_DROP
+  REBALANCED
+  MANUAL
+}
+
+enum CheckDecision {
+  HOLD
+  REBALANCE
+  EXIT
+  NONE
+}
+
+enum TxAction {
+  APPROVE
+  SWAP
+  MINT
+  DECREASE_LIQUIDITY
+  COLLECT
+  SWEEP
+}
+
+enum TxStatus {
+  SUCCESS
+  FAILED
+  REVERTED
+}
