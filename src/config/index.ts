@@ -11,6 +11,8 @@ export interface EnvConfig {
   chains: Map<number, ChainConfig>;
   allowNative: boolean;
   gasMultiplier: bigint;
+  /** L-02: Global gas price cap in wei (0 = unlimited) */
+  maxGasPriceWei: bigint;
   requestTimeout: number;
   confirmationTimeout: number;
   rateLimitMax: number;
@@ -125,6 +127,12 @@ export function loadConfig(): EnvConfig {
   const rawGasMultiplier = env["GAS_MULTIPLIER"] ?? "1.20";
   const allowNative = env["ALLOW_NATIVE"] === "1";
 
+  // L-02: Parse max gas price in gwei, convert to wei
+  const rawMaxGasPriceGwei = env["MAX_GAS_PRICE_GWEI"];
+  const maxGasPriceWei = rawMaxGasPriceGwei
+    ? BigInt(rawMaxGasPriceGwei) * 1_000_000_000n
+    : 0n;
+
   return {
     port: Number.parseInt(env["PORT"] ?? "3000", 10),
     host: env["HOST"] ?? "0.0.0.0",
@@ -133,6 +141,7 @@ export function loadConfig(): EnvConfig {
     chains,
     allowNative,
     gasMultiplier: parseBigInt(rawGasMultiplier, "GAS_MULTIPLIER"),
+    maxGasPriceWei,
     requestTimeout: Number.parseInt(env["REQUEST_TIMEOUT"] ?? "10000", 10),
     confirmationTimeout: Number.parseInt(
       env["CONFIRMATION_TIMEOUT"] ?? "60000",

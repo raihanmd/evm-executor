@@ -134,8 +134,12 @@ export async function estimateGas(
     const withBuffer = (estimated * (100n + gasMultiplier)) / 100n;
     return withBuffer;
   } catch (err) {
-    logger.warn({ err }, "Gas estimation failed, using fallback");
-    return 300_000n; // safe fallback
+    // M-02: estimateGas failure means the call would revert on-chain.
+    // Fallback gas would just burn fees on a known-failing tx — hard-reject instead.
+    const reason =
+      err instanceof Error ? err.message : "Gas estimation failed";
+    logger.warn({ err }, "Gas estimation failed — rejecting");
+    throw new Error(`Transaction would revert: ${reason}`);
   }
 }
 
