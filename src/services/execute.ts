@@ -76,7 +76,7 @@ export class ExecuteService {
       return { success: false, message: `Chain ${req.chainId} is not allowed` };
     }
 
-    // Layer 7 — Destination Contract Whitelist
+    // Normalize destination address
     let normalizedTo: Address;
     try {
       normalizedTo = getAddress(req.to);
@@ -84,32 +84,7 @@ export class ExecuteService {
       return { success: false, message: "Invalid destination address" };
     }
 
-    const allowed = chainConfig.allowedContracts;
-    if (allowed.length > 0) {
-      const isAllowed = allowed.some(
-        (addr) => addr.toLowerCase() === normalizedTo.toLowerCase(),
-      );
-      if (!isAllowed) {
-        logger.warn(
-          { to: normalizedTo, chainId: req.chainId },
-          "Destination contract not allowed",
-        );
-        return {
-          success: false,
-          message: `Contract ${normalizedTo} is not allowed on chain ${req.chainId}`,
-        };
-      }
-    }
-
-    // Layer 8 — Native Value Restriction
     const value = BigInt(req.value);
-    if (!this.config.allowNative && value > 0n) {
-      logger.warn({ value: req.value }, "Native value transfer blocked");
-      return {
-        success: false,
-        message: "Native value transfers are not allowed",
-      };
-    }
 
     // Layer 9 & 10 — Calldata & Address validation already done in validators
 

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { type Address, getAddress } from "viem";
+import type { Address } from "viem";
 import type { ChainConfig } from "../types/index.ts";
 import { InternalError } from "../errors/index.ts";
 
@@ -9,7 +9,6 @@ export interface EnvConfig {
   apiKey: string;
   privateKey: Address;
   chains: Map<number, ChainConfig>;
-  allowNative: boolean;
   gasMultiplier: bigint;
   /** L-02: Global gas price cap in wei (0 = unlimited) */
   maxGasPriceWei: bigint;
@@ -44,34 +43,6 @@ function parseChains(raw: string | undefined): number[] {
     chains.push(id);
   }
   return chains;
-}
-
-function parseContracts(
-  chainIds: number[],
-  env: Record<string, string | undefined>,
-): Map<number, Address[]> {
-  const map = new Map<number, Address[]>();
-  for (const chainId of chainIds) {
-    const raw = env[`CONTRACTS_${chainId}`];
-    if (!raw || raw.trim() === "") {
-      map.set(chainId, []);
-      continue;
-    }
-    const addresses: Address[] = [];
-    for (const part of raw.split(",")) {
-      const trimmed = part.trim();
-      if (trimmed === "") continue;
-      try {
-        addresses.push(getAddress(trimmed));
-      } catch {
-        throw new InternalError(
-          `Invalid address for chain ${chainId}: ${trimmed}`,
-        );
-      }
-    }
-    map.set(chainId, addresses);
-  }
-  return map;
 }
 
 function parseRpcUrls(
@@ -110,22 +81,19 @@ export function loadConfig(): EnvConfig {
   }
 
   const rpcUrls = parseRpcUrls(chainIds, env);
-  const contracts = parseContracts(chainIds, env);
 
   const chains = new Map<number, ChainConfig>();
   for (const chainId of chainIds) {
     const rpcUrl = rpcUrls.get(chainId);
-    const allowedContracts = contracts.get(chainId) ?? [];
     if (!rpcUrl) {
       throw new InternalError(
         `Missing RPC URL for chain ${chainId} — this should not happen`,
       );
     }
-    chains.set(chainId, { chainId, rpcUrl, allowedContracts });
+    chains.set(chainId, { chainId, rpcUrl });
   }
 
   const rawGasMultiplier = env["GAS_MULTIPLIER"] ?? "1.20";
-  const allowNative = env["ALLOW_NATIVE"] === "1";
 
   // L-02: Parse max gas price in gwei, convert to wei
   const rawMaxGasPriceGwei = env["MAX_GAS_PRICE_GWEI"];
@@ -139,7 +107,6 @@ export function loadConfig(): EnvConfig {
     apiKey: rawApiKey.trim(),
     privateKey: rawPrivateKey.trim() as Address,
     chains,
-    allowNative,
     gasMultiplier: parseBigInt(rawGasMultiplier, "GAS_MULTIPLIER"),
     maxGasPriceWei,
     requestTimeout: Number.parseInt(env["REQUEST_TIMEOUT"] ?? "10000", 10),

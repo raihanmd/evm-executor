@@ -38,7 +38,6 @@ export type FeeModel = "eip1559" | "legacy";
 export interface ChainConfig {
   chainId: number;
   rpcUrl: string;
-  allowedContracts: Address[];
 }
 
 /** Transaction confirmation status */

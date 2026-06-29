@@ -8,8 +8,6 @@
  *   2  — API key auth
  *   5  — Idempotency
  *   6  — Chain whitelist
- *   7  — Contract whitelist
- *   8  — Native value restriction
  *   9  — Calldata format validation
  *  10  — Address validation
  *  11  — Payload size limit
@@ -24,9 +22,7 @@ process.env.PRIVATE_KEY =
 process.env.ALLOWED_CHAINS = "1,56";
 process.env.RPC_URL_1 = "http://127.0.0.1:1";
 process.env.RPC_URL_56 = "http://127.0.0.1:1";
-process.env.CONTRACTS_1 = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
-process.env.CONTRACTS_56 = "";
-process.env.ALLOW_NATIVE = "0";
+
 process.env.LOG_LEVEL = "silent";
 process.env.RATE_LIMIT_MAX = "100";
 process.env.RATE_LIMIT_WINDOW_MS = "60000";
@@ -151,13 +147,13 @@ describe("Security layers — POST /v1/evm/execute", () => {
     it("returns 409 when the same X-Request-ID is sent twice", async () => {
       const requestId = "idem-test-001";
 
-      // First request with chain 1 + unapproved contract returns 400 normally
-      // (not thrown), so the idempotency mark persists.
+      // First request fails (fake RPC, no contract whitelist anymore),
+      // but the 500 is still cached by idempotency middleware.
       const res1 = await signedRequest(baseUrl, {
         requestId,
         body: { ...DEFAULT_BODY, chainId: 1, to: "0x0000000000000000000000000000000000000001" },
       });
-      expect(res1.status).toBe(400);
+      expect(res1.status).toBe(500);
 
       // Second request with same ID — idempotency key exists → 409
       const res2 = await signedRequest(baseUrl, { requestId });
@@ -186,42 +182,7 @@ describe("Security layers — POST /v1/evm/execute", () => {
     });
   });
 
-  // ── Layer 7 — Contract Whitelist ──────────────────────────────────────────
 
-  describe("Layer 7 — Contract Whitelist", () => {
-    it("rejects contract not in CONTRACTS_<chainId>", async () => {
-      const res = await signedRequest(baseUrl, {
-        body: { ...DEFAULT_BODY, chainId: 1, to: "0x0000000000000000000000000000000000000001" },
-      });
-      expect(res.status).toBe(400);
-      const body = await expectJson(res);
-      expect(body.success).toBe(false);
-      expect(body.message).toMatch(/not allowed/i);
-    });
-
-    it("allows any destination when CONTRACTS_<chainId> is empty", async () => {
-      const res = await signedRequest(baseUrl, {
-        body: { ...DEFAULT_BODY, chainId: 56 },
-      });
-      expect(res.status).toBe(500);
-      const body = await expectJson(res);
-      expect(body.message).not.toMatch(/not allowed/i);
-    });
-  });
-
-  // ── Layer 8 — Native Value Restriction ────────────────────────────────────
-
-  describe("Layer 8 — Native Value Restriction", () => {
-    it("rejects native value transfer when ALLOW_NATIVE=0", async () => {
-      const res = await signedRequest(baseUrl, {
-        body: { ...DEFAULT_BODY, value: "1000000000000000" },
-      });
-      expect(res.status).toBe(400);
-      const body = await expectJson(res);
-      expect(body.success).toBe(false);
-      expect(body.message).toMatch(/native value transfer/i);
-    });
-  });
 
   // ── Layer 9+10 — Calldata + Address Validation ───────────────────────────
 
