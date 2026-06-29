@@ -12,7 +12,7 @@ export interface ExecuteRequest {
 export interface ExecuteSuccess {
   success: true;
   txHash: Hash;
-  blockNumber?: bigint;
+  blockNumber?: string;
   status?: "success" | "reverted";
 }
 
@@ -27,7 +27,7 @@ export type ExecuteResponse = ExecuteSuccess | ExecuteFailure;
 /** Result of broadcasting and confirming a transaction */
 export interface BroadcastResult {
   txHash: Hash;
-  blockNumber?: bigint;
+  blockNumber?: string;
   status?: "success" | "reverted";
 }
 

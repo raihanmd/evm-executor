@@ -167,7 +167,7 @@ export async function broadcastAndConfirm(
   confirmTimeout: number,
 ): Promise<{
   txHash: Hex;
-  blockNumber?: bigint;
+  blockNumber?: string;
   status?: "success" | "reverted";
 }> {
   const publicClient = createPublicClientForChain(config);
@@ -186,7 +186,7 @@ export async function broadcastAndConfirm(
 
   return {
     txHash,
-    blockNumber: receipt.blockNumber,
+    blockNumber: receipt.blockNumber?.toString(),
     status: receipt.status,
   };
 }
