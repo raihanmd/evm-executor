@@ -40,7 +40,7 @@ model Position {
   rangePercent        Int
   tickAtMint          Int
 
-  deployAmountUsdt     Decimal  @db.Decimal(30, 6)
+  deployAmountUsdt     String
   amount0Deposited     String
   amount1Deposited     String
   liquidity            String
@@ -65,9 +65,9 @@ model Position {
   amount1Withdrawn     String?
   feesCollected0       String?
   feesCollected1       String?
-  finalSweepAmountUsdt Decimal? @db.Decimal(30, 6)
-  pnlUsdt              Decimal? @db.Decimal(30, 6)
-  pnlPercent           Decimal? @db.Decimal(10, 4)
+  finalSweepAmountUsdt String?
+  pnlUsdt              String?
+  pnlPercent           String?
 
   previousPositionId   String?  @unique
   previousPosition     Position? @relation("Lineage", fields: [previousPositionId], references: [id])
@@ -96,12 +96,12 @@ model PositionCheck {
   currentTick     Int
   inRange         Boolean
 
-  currentValueUsdt Decimal @db.Decimal(30, 6)
-  drawdownPct      Decimal @db.Decimal(10, 4)
+  currentValueUsdt String
+  drawdownPct      String
 
-  poolTvl          Decimal @db.Decimal(30, 6)
-  poolVolume24h    Decimal @db.Decimal(30, 6)
-  poolFeesApr      Decimal @db.Decimal(10, 4)
+  poolTvl          String
+  poolVolume24h    String
+  poolFeesApr      String
 
   decision         CheckDecision
   decisionReason   String
@@ -119,8 +119,8 @@ model TxLog {
   blockNumber   BigInt?
   gasUsed       BigInt?
   gasPriceWei   String?
-  gasCostBnb    Decimal? @db.Decimal(20, 10)
-  gasCostUsd    Decimal? @db.Decimal(20, 6)
+  gasCostBnb    String?
+  gasCostUsd    String?
 
   createdAt     DateTime @default(now())
 }
