@@ -13,6 +13,7 @@ import {
 import { ValidationError, NotFoundError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
 import { jsonSafe } from "../lib/json-safe.ts";
+import { parseDecimal, formatDecimal, pctChange } from "../lib/math.ts";
 import { getLogger } from "../logger/index.ts";
 import type { Prisma } from "@prisma/client";
 
@@ -314,12 +315,13 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
     }
 
-    const deployAmount = Number(position.deployAmountUsdt);
-    const sweepAmount = Number(finalSweepAmountUsdt);
-    const pnlUsdt = sweepAmount - deployAmount;
-    const pnlPercent = deployAmount !== 0
-      ? (pnlUsdt / deployAmount) * 100
-      : 0;
+    const deployBase = parseDecimal(position.deployAmountUsdt);
+    const sweepBase = parseDecimal(finalSweepAmountUsdt);
+    const pnlBase = sweepBase - deployBase;
+    const pnlUsdtStr = formatDecimal(pnlBase);
+    const pnlPercentStr = deployBase !== 0n
+      ? pctChange(finalSweepAmountUsdt, position.deployAmountUsdt)
+      : "0";
 
     const updated = await prisma.position.update({
       where: { id: position.id },
@@ -334,13 +336,13 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         feesCollected0,
         feesCollected1,
         finalSweepAmountUsdt,
-        pnlUsdt: pnlUsdt.toFixed(6),
-        pnlPercent: pnlPercent.toFixed(4),
+        pnlUsdt: pnlUsdtStr,
+        pnlPercent: pnlPercentStr,
       },
     });
 
     logger.info(
-      { positionId: updated.id, pnlUsdt: pnlUsdt.toFixed(6), pnlPercent: pnlPercent.toFixed(4) },
+      { positionId: updated.id, pnlUsdt: pnlUsdtStr, pnlPercent: pnlPercentStr },
       "Position exited",
     );
 
