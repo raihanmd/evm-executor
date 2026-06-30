@@ -29,13 +29,14 @@ export function createPoolsRouter(_config: EnvConfig, _signer: SignerAdapter): H
     }
 
     const { chainId, address, ...rest } = parsed.data;
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
 
     logger.info({ chainId, address }, "Upserting pool");
 
     const pool = await prisma.pool.upsert({
       where: { chainId_address: { chainId, address } },
       update: rest,
-      create: { chainId, address, ...rest },
+      create: { chainId, address, ...rest, createdAt: nowUnix },
     });
 
     logger.info({ poolId: pool.id, address }, "Pool upserted");

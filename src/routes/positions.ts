@@ -13,7 +13,6 @@ import {
 import { ValidationError, NotFoundError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
 import { jsonSafe } from "../lib/json-safe.ts";
-import { parseDecimal, formatDecimal, pctChange } from "../lib/math.ts";
 import { getLogger } from "../logger/index.ts";
 import type { Prisma } from "@prisma/client";
 
@@ -38,6 +37,8 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       ...positionFields
     } = parsed.data;
 
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
     logger.info({ chainId, tokenId }, "Recording minted position");
 
     const pool = await prisma.pool.upsert({
@@ -51,7 +52,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         token1Decimals: poolData.token1Decimals,
         feeTier: poolData.feeTier,
       },
-      create: { chainId, ...poolData },
+      create: { chainId, ...poolData, createdAt: nowUnix },
     });
 
     const position = await prisma.position.upsert({
@@ -73,7 +74,8 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         configSnapshot: configSnapshot as Prisma.InputJsonValue,
         recipientWallet: positionFields.recipientWallet,
         status: "ACTIVE",
-        lastInRangeAt: new Date(),
+        lastInRangeAt: nowUnix,
+        updatedAt: nowUnix,
       },
       create: {
         chainId,
@@ -93,8 +95,10 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         swapAmountOutActual: positionFields.swapAmountOutActual ?? null,
         mintTxHash: positionFields.mintTxHash,
         mintBlockNumber: BigInt(positionFields.mintBlockNumber),
-        mintedAt: new Date(),
-        lastInRangeAt: new Date(),
+        mintedAt: nowUnix,
+        lastInRangeAt: nowUnix,
+        createdAt: nowUnix,
+        updatedAt: nowUnix,
         configSnapshot: configSnapshot as Prisma.InputJsonValue,
         recipientWallet: positionFields.recipientWallet,
       },
@@ -130,6 +134,8 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       decisionReason,
     } = parsed.data;
 
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
     logger.info({ tokenId, inRange, decision }, "Recording position check");
 
     const position = await prisma.position.findUnique({
@@ -142,6 +148,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     await prisma.positionCheck.create({
       data: {
         positionId: position.id,
+        checkedAt: nowUnix,
         blockNumber: BigInt(blockNumber),
         currentTick,
         inRange,
@@ -156,16 +163,17 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     });
 
     const updateData: Prisma.PositionUpdateInput = {
-      lastCheckedAt: new Date(),
+      lastCheckedAt: nowUnix,
+      updatedAt: nowUnix,
     };
 
     if (inRange) {
-      updateData.lastInRangeAt = new Date();
+      updateData.lastInRangeAt = nowUnix;
       updateData.oorSince = null;
       updateData.status = "ACTIVE";
     } else {
       if (position.oorSince === null) {
-        updateData.oorSince = new Date();
+        updateData.oorSince = nowUnix;
       }
       updateData.status = "OUT_OF_RANGE";
     }
@@ -175,11 +183,10 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       data: updateData,
     });
 
+    const nowSeconds = Math.floor(Date.now() / 1000);
     let oorDurationMinutes: number | null = null;
     if (updated.oorSince) {
-      oorDurationMinutes = Math.floor(
-        (Date.now() - updated.oorSince.getTime()) / 60_000,
-      );
+      oorDurationMinutes = Math.floor((nowSeconds - Number(updated.oorSince)) / 60);
     }
 
     return c.json({ success: true, data: jsonSafe({ ...updated, oorDurationMinutes }) }, 200);
@@ -207,6 +214,8 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       newPosition,
     } = parsed.data;
 
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
     logger.info({ tokenId, chainId }, "Rebalancing position");
 
     const oldPosition = await prisma.position.findUnique({
@@ -223,11 +232,12 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         exitReason: "REBALANCED",
         closeTxHash,
         closeBlockNumber: BigInt(closeBlockNumber),
-        closedAt: new Date(),
+        closedAt: nowUnix,
         amount0Withdrawn,
         amount1Withdrawn,
         feesCollected0,
         feesCollected1,
+        updatedAt: nowUnix,
       },
     });
 
@@ -244,7 +254,7 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         token1Decimals: newPosition.pool.token1Decimals,
         feeTier: newPosition.pool.feeTier,
       },
-      create: { chainId, ...newPosition.pool },
+      create: { chainId, ...newPosition.pool, createdAt: nowUnix },
     });
 
     const newPosRecord = await prisma.position.create({
@@ -266,8 +276,10 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         swapAmountOutActual: newPosition.swapAmountOutActual ?? null,
         mintTxHash: newPosition.mintTxHash,
         mintBlockNumber: BigInt(newPosition.mintBlockNumber),
-        mintedAt: new Date(),
-        lastInRangeAt: new Date(),
+        mintedAt: nowUnix,
+        lastInRangeAt: nowUnix,
+        createdAt: nowUnix,
+        updatedAt: nowUnix,
         configSnapshot: newPosition.configSnapshot as Prisma.InputJsonValue,
         recipientWallet: newPosition.recipientWallet,
         previousPositionId: oldPosition.id,
@@ -306,6 +318,8 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       finalSweepAmountUsdt,
     } = parsed.data;
 
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
     logger.info({ tokenId, chainId, exitReason }, "Exiting position");
 
     const position = await prisma.position.findUnique({
@@ -315,13 +329,13 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
     }
 
-    const deployBase = parseDecimal(position.deployAmountUsdt);
-    const sweepBase = parseDecimal(finalSweepAmountUsdt);
-    const pnlBase = sweepBase - deployBase;
-    const pnlUsdtStr = formatDecimal(pnlBase);
-    const pnlPercentStr = deployBase !== 0n
-      ? pctChange(finalSweepAmountUsdt, position.deployAmountUsdt)
+    const deployRaw = BigInt(position.deployAmountUsdt);
+    const sweepRaw = BigInt(finalSweepAmountUsdt);
+    const pnlRaw = sweepRaw - deployRaw;
+    const pnlPercentRaw = deployRaw !== 0n
+      ? ((pnlRaw * 1_000_000n) / deployRaw).toString()
       : "0";
+    const pnlUsdt = pnlRaw.toString();
 
     const updated = await prisma.position.update({
       where: { id: position.id },
@@ -330,19 +344,20 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
         exitReason,
         closeTxHash,
         closeBlockNumber: BigInt(closeBlockNumber),
-        closedAt: new Date(),
+        closedAt: nowUnix,
         amount0Withdrawn,
         amount1Withdrawn,
         feesCollected0,
         feesCollected1,
         finalSweepAmountUsdt,
-        pnlUsdt: pnlUsdtStr,
-        pnlPercent: pnlPercentStr,
+        pnlUsdt,
+        pnlPercent: pnlPercentRaw,
+        updatedAt: nowUnix,
       },
     });
 
     logger.info(
-      { positionId: updated.id, pnlUsdt: pnlUsdtStr, pnlPercent: pnlPercentStr },
+      { positionId: updated.id, pnlUsdt, pnlPercent: pnlPercentRaw },
       "Position exited",
     );
 

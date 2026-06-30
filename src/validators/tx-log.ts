@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const NumericString = z.string().regex(/^\d+$/, "Must be a numeric string");
+
 export const TxLogBody = z.object({
   positionId: z.string().nullable(),
   txHash: z.string().startsWith("0x"),
@@ -12,25 +14,11 @@ export const TxLogBody = z.object({
     "SWEEP",
   ]),
   status: z.enum(["SUCCESS", "FAILED", "REVERTED"]),
-  blockNumber: z
-    .string()
-    .regex(/^\d+$/, "blockNumber must be a numeric string"),
-  gasUsed: z
-    .string()
-    .regex(/^\d+$/, "gasUsed must be a numeric string")
-    .optional(),
-  gasPriceWei: z
-    .string()
-    .regex(/^\d+$/, "gasPriceWei must be a numeric string")
-    .optional(),
-  gasCostBnb: z
-    .string()
-    .regex(/^\d+(\.\d+)?$/, "gasCostBnb must be a decimal string")
-    .optional(),
-  gasCostUsd: z
-    .string()
-    .regex(/^\d+(\.\d+)?$/, "gasCostUsd must be a decimal string")
-    .optional(),
+  blockNumber: NumericString,
+  gasUsed: NumericString.optional(),
+  gasPriceWei: NumericString.optional(),
+  gasCostBnb: NumericString.optional(),
+  gasCostUsd: NumericString.optional(),
 });
 
 export type TxLogBodyValidated = z.infer<typeof TxLogBody>;

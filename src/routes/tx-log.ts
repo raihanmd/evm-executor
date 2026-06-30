@@ -36,31 +36,27 @@ export function createTxLogRouter(
       gasCostUsd,
     } = parsed.data;
 
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
     logger.info({ txHash, action, status }, "Logging transaction");
+
+    const baseData = {
+      txHash,
+      action,
+      status,
+      blockNumber: BigInt(blockNumber),
+      gasUsed: BigInt(gasUsed ?? 0n),
+      gasPriceWei,
+      gasCostBnb,
+      gasCostUsd,
+      ...(positionId ? { positionId } : {}),
+    };
+    const createData = { ...baseData, createdAt: nowUnix };
 
     const txLog = await prisma.txLog.upsert({
       where: { txHash },
-      update: {
-        action,
-        status,
-        blockNumber: BigInt(blockNumber),
-        gasUsed: BigInt(gasUsed ?? 0n),
-        gasPriceWei,
-        gasCostBnb,
-        gasCostUsd,
-        positionId: positionId ?? undefined,
-      },
-      create: {
-        positionId: positionId ?? undefined,
-        txHash,
-        action,
-        status,
-        blockNumber: BigInt(blockNumber),
-        gasUsed: BigInt(gasUsed ?? 0n),
-        gasPriceWei,
-        gasCostBnb,
-        gasCostUsd,
-      },
+      update: baseData,
+      create: createData,
     });
 
     logger.info({ txHash, id: txLog.id }, "Transaction logged");

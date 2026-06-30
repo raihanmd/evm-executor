@@ -26,7 +26,7 @@ export const FromMintBody = z.object({
   tickUpper: z.number().int(),
   rangePercent: z.number().int(),
   tickAtMint: z.number().int(),
-  deployAmountUsdt: z.string().regex(/^\d+(\.\d+)?$/, "deployAmountUsdt must be a decimal string"),
+  deployAmountUsdt: NumericString,
   amount0Deposited: NumericString,
   amount1Deposited: NumericString,
   liquidity: NumericString,
@@ -46,11 +46,11 @@ export const PositionCheckBody = z.object({
   blockNumber: NumericString,
   currentTick: z.number().int(),
   inRange: z.boolean(),
-  currentValueUsdt: z.string().regex(/^\d+(\.\d+)?$/, "currentValueUsdt must be a decimal string"),
-  drawdownPct: z.string().regex(/^\d+(\.\d+)?$/, "drawdownPct must be a decimal string"),
-  poolTvl: z.string().regex(/^\d+(\.\d+)?$/, "poolTvl must be a decimal string"),
-  poolVolume24h: z.string().regex(/^\d+(\.\d+)?$/, "poolVolume24h must be a decimal string"),
-  poolFeesApr: z.string().regex(/^\d+(\.\d+)?$/, "poolFeesApr must be a decimal string"),
+  currentValueUsdt: NumericString,
+  drawdownPct: NumericString,
+  poolTvl: NumericString,
+  poolVolume24h: NumericString,
+  poolFeesApr: NumericString,
   decision: z.enum(["HOLD", "REBALANCE", "EXIT", "NONE"]),
   decisionReason: z.string().min(1),
 });
@@ -65,7 +65,7 @@ const NewPositionData = z.object({
   tickUpper: z.number().int(),
   rangePercent: z.number().int(),
   tickAtMint: z.number().int(),
-  deployAmountUsdt: z.string().regex(/^\d+(\.\d+)?$/, "deployAmountUsdt must be a decimal string"),
+  deployAmountUsdt: NumericString,
   amount0Deposited: NumericString,
   amount1Deposited: NumericString,
   liquidity: NumericString,
@@ -100,7 +100,7 @@ export const ExitBody = z.object({
   amount1Withdrawn: NumericString,
   feesCollected0: NumericString,
   feesCollected1: NumericString,
-  finalSweepAmountUsdt: z.string().regex(/^\d+(\.\d+)?$/, "finalSweepAmountUsdt must be a decimal string"),
+  finalSweepAmountUsdt: NumericString,
 });
 
 export type ExitBodyValidated = z.infer<typeof ExitBody>;

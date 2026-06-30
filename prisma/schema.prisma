@@ -20,7 +20,7 @@ model Pool {
   feeTier         Int
 
   positions       Position[]
-  createdAt       DateTime @default(now())
+  createdAt       BigInt
 
   @@unique([chainId, address])
 }
@@ -51,16 +51,16 @@ model Position {
 
   mintTxHash           String
   mintBlockNumber      BigInt
-  mintedAt             DateTime
+  mintedAt             BigInt
 
-  lastCheckedAt        DateTime?
-  lastInRangeAt        DateTime?
-  oorSince             DateTime?
+  lastCheckedAt        BigInt?
+  lastInRangeAt        BigInt?
+  oorSince             BigInt?
 
   exitReason           ExitReason?
   closeTxHash          String?
   closeBlockNumber     BigInt?
-  closedAt             DateTime?
+  closedAt             BigInt?
   amount0Withdrawn     String?
   amount1Withdrawn     String?
   feesCollected0       String?
@@ -80,8 +80,8 @@ model Position {
   checks               PositionCheck[]
   txLogs               TxLog[]
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            BigInt
+  updatedAt            BigInt
 
   @@unique([chainId, tokenId])
 }
@@ -91,7 +91,7 @@ model PositionCheck {
   positionId      String
   position        Position @relation(fields: [positionId], references: [id])
 
-  checkedAt       DateTime @default(now())
+  checkedAt       BigInt
   blockNumber     BigInt
   currentTick     Int
   inRange         Boolean
@@ -122,7 +122,7 @@ model TxLog {
   gasCostBnb    String?
   gasCostUsd    String?
 
-  createdAt     DateTime @default(now())
+  createdAt     BigInt
 }
 
 enum PositionStatus {
