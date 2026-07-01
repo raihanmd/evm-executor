@@ -1,11 +1,9 @@
 import { z } from "zod";
 
 const NumericString = z.string().regex(/^\d+$/, "Must be a numeric string");
-const EvmAddress = z
-  .string()
-  .refine((val) => /^0x[a-fA-F0-9]{40}$/.test(val), {
-    message: "Invalid EVM address",
-  });
+const EvmAddress = z.string().refine((val) => /^0x[a-fA-F0-9]{40}$/.test(val), {
+  message: "Invalid EVM address",
+});
 
 const PoolData = z.object({
   address: EvmAddress,
@@ -96,6 +94,7 @@ export const ExitBody = z.object({
     "OOR_TIMEOUT",
     "DRAWDOWN_STOP",
     "RUG_TVL_DROP",
+    "LOW_VOLUME",
     "MANUAL",
   ]),
   closeTxHash: z.string().startsWith("0x"),
