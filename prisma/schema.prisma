@@ -1,6 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
-  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,54 +8,54 @@ datasource db {
 }
 
 model Pool {
-  id              String   @id @default(cuid())
-  chainId         Int
-  address         String
-  token0Address   String
-  token1Address   String
-  token0Symbol    String
-  token1Symbol    String
-  token0Decimals  Int
-  token1Decimals  Int
-  feeTier         Int
+  id             String @id @default(cuid())
+  chainId        Int
+  address        String
+  token0Address  String
+  token1Address  String
+  token0Symbol   String
+  token1Symbol   String
+  token0Decimals Int
+  token1Decimals Int
+  feeTier        Int
 
-  positions       Position[]
-  createdAt       BigInt
+  positions Position[]
+  createdAt BigInt
 
   @@unique([chainId, address])
 }
 
 model Position {
-  id                  String   @id @default(cuid())
-  chainId             Int
-  tokenId             String
+  id      String @id @default(cuid())
+  chainId Int
+  tokenId String
 
-  poolId              String
-  pool                Pool     @relation(fields: [poolId], references: [id])
+  poolId String
+  pool   Pool   @relation(fields: [poolId], references: [id])
 
-  status              PositionStatus @default(ACTIVE)
+  status PositionStatus @default(ACTIVE)
 
-  tickLower           Int
-  tickUpper           Int
-  rangePercent        Int
-  tickAtMint          Int
+  tickLower    Int
+  tickUpper    Int
+  rangePercent Int
+  tickAtMint   Int
 
-  deployAmountUsdt     String
-  amount0Deposited     String
-  amount1Deposited     String
-  liquidity            String
+  deployAmountUsdt String
+  amount0Deposited String
+  amount1Deposited String
+  liquidity        String
 
-  swapAmountIn         String?
-  swapAmountOutMin     String?
-  swapAmountOutActual  String?
+  swapAmountIn        String?
+  swapAmountOutMin    String?
+  swapAmountOutActual String?
 
-  mintTxHash           String
-  mintBlockNumber      BigInt
-  mintedAt             BigInt
+  mintTxHash      String
+  mintBlockNumber BigInt
+  mintedAt        BigInt
 
-  lastCheckedAt        BigInt?
-  lastInRangeAt        BigInt?
-  oorSince             BigInt?
+  lastCheckedAt BigInt?
+  lastInRangeAt BigInt?
+  oorSince      BigInt?
 
   exitReason           ExitReason?
   closeTxHash          String?
@@ -69,60 +69,59 @@ model Position {
   pnlUsdt              String?
   pnlPercent           String?
 
-  previousPositionId   String?  @unique
-  previousPosition     Position? @relation("Lineage", fields: [previousPositionId], references: [id])
-  nextPosition         Position? @relation("Lineage")
-  rootPositionId       String?
+  previousPositionId String?   @unique
+  previousPosition   Position? @relation("Lineage", fields: [previousPositionId], references: [id])
+  nextPosition       Position? @relation("Lineage")
+  rootPositionId     String?
 
-  configSnapshot       Json
-  recipientWallet      String
+  configSnapshot  Json
+  recipientWallet String
 
-  checks               PositionCheck[]
-  txLogs               TxLog[]
+  checks PositionCheck[]
+  txLogs TxLog[]
 
-  createdAt            BigInt
-  updatedAt            BigInt
+  createdAt BigInt
+  updatedAt BigInt
 
   @@unique([chainId, tokenId])
 }
 
 model PositionCheck {
-  id              String   @id @default(cuid())
-  positionId      String
-  position        Position @relation(fields: [positionId], references: [id])
+  id         String   @id @default(cuid())
+  positionId String
+  position   Position @relation(fields: [positionId], references: [id])
 
-  checkedAt       BigInt
-  blockNumber     BigInt
-  currentTick     Int
-  inRange         Boolean
+  checkedAt   BigInt
+  currentTick Int
+  inRange     Boolean
 
   currentValueUsdt String
   drawdownPct      String
 
-  poolTvl          String
-  poolVolume24h    String
-  poolFeesApr      String
+  poolTvl       String
+  poolVolume24h String
+  poolFeesApr   String
 
-  decision         CheckDecision
-  decisionReason   String
+  decision       CheckDecision
+  decisionReason String
 }
 
 model TxLog {
-  id            String   @id @default(cuid())
-  positionId    String?
-  position      Position? @relation(fields: [positionId], references: [id])
+  id         String    @id @default(cuid())
+  positionId String?
+  position   Position? @relation(fields: [positionId], references: [id])
 
-  txHash        String   @unique
-  action        TxAction
-  status        TxStatus
+  txHash String   @unique
+  action TxAction
+  status TxStatus
 
-  blockNumber   BigInt?
-  gasUsed       BigInt?
-  gasPriceWei   String?
-  gasCostBnb    String?
-  gasCostUsd    String?
+  blockNumber BigInt?
+  gasUsed     BigInt?
+  gasPriceWei String?
+  gasCostBnb  String?
+  gasCostUsd  String?
 
-  createdAt     BigInt
+  createdAt BigInt
 }
 
 enum PositionStatus {

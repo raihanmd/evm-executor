@@ -16,7 +16,10 @@ import { jsonSafe } from "../lib/json-safe.ts";
 import { getLogger } from "../logger/index.ts";
 import type { Prisma } from "@prisma/client";
 
-export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter): Hono<AppEnv> {
+export function createPositionsRouter(
+  _config: EnvConfig,
+  _signer: SignerAdapter,
+): Hono<AppEnv> {
   const router = new Hono<AppEnv>();
 
   router.post("/from-mint", async (c) => {
@@ -122,7 +125,6 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
 
     const {
       chainId,
-      blockNumber,
       currentTick,
       inRange,
       currentValueUsdt,
@@ -142,14 +144,15 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       where: { chainId_tokenId: { chainId, tokenId } },
     });
     if (!position) {
-      throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
+      throw new NotFoundError(
+        `Position not found for tokenId ${tokenId} on chain ${chainId}`,
+      );
     }
 
     await prisma.positionCheck.create({
       data: {
         positionId: position.id,
         checkedAt: nowUnix,
-        blockNumber: BigInt(blockNumber),
         currentTick,
         inRange,
         currentValueUsdt,
@@ -186,10 +189,15 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     const nowSeconds = Math.floor(Date.now() / 1000);
     let oorDurationMinutes: number | null = null;
     if (updated.oorSince) {
-      oorDurationMinutes = Math.floor((nowSeconds - Number(updated.oorSince)) / 60);
+      oorDurationMinutes = Math.floor(
+        (nowSeconds - Number(updated.oorSince)) / 60,
+      );
     }
 
-    return c.json({ success: true, data: jsonSafe({ ...updated, oorDurationMinutes }) }, 200);
+    return c.json(
+      { success: true, data: jsonSafe({ ...updated, oorDurationMinutes }) },
+      200,
+    );
   });
 
   router.post("/:tokenId/rebalance", async (c) => {
@@ -222,7 +230,9 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       where: { chainId_tokenId: { chainId, tokenId } },
     });
     if (!oldPosition) {
-      throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
+      throw new NotFoundError(
+        `Position not found for tokenId ${tokenId} on chain ${chainId}`,
+      );
     }
 
     const closedPosition = await prisma.position.update({
@@ -244,7 +254,9 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     const rootPositionId = oldPosition.rootPositionId ?? oldPosition.id;
 
     const pool = await prisma.pool.upsert({
-      where: { chainId_address: { chainId, address: newPosition.pool.address } },
+      where: {
+        chainId_address: { chainId, address: newPosition.pool.address },
+      },
       update: {
         token0Address: newPosition.pool.token0Address,
         token1Address: newPosition.pool.token1Address,
@@ -292,7 +304,13 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       "Rebalance complete",
     );
 
-    return c.json({ success: true, data: jsonSafe({ closedPosition, newPosition: newPosRecord }) }, 200);
+    return c.json(
+      {
+        success: true,
+        data: jsonSafe({ closedPosition, newPosition: newPosRecord }),
+      },
+      200,
+    );
   });
 
   router.post("/:tokenId/exit", async (c) => {
@@ -326,15 +344,16 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       where: { chainId_tokenId: { chainId, tokenId } },
     });
     if (!position) {
-      throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
+      throw new NotFoundError(
+        `Position not found for tokenId ${tokenId} on chain ${chainId}`,
+      );
     }
 
     const deployRaw = BigInt(position.deployAmountUsdt);
     const sweepRaw = BigInt(finalSweepAmountUsdt);
     const pnlRaw = sweepRaw - deployRaw;
-    const pnlPercentRaw = deployRaw !== 0n
-      ? ((pnlRaw * 1_000_000n) / deployRaw).toString()
-      : "0";
+    const pnlPercentRaw =
+      deployRaw !== 0n ? ((pnlRaw * 1_000_000n) / deployRaw).toString() : "0";
     const pnlUsdt = pnlRaw.toString();
 
     const updated = await prisma.position.update({
@@ -370,7 +389,9 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     const parsed = GetPositionsQuery.safeParse(c.req.query());
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(firstError?.message ?? "Invalid query parameters");
+      throw new ValidationError(
+        firstError?.message ?? "Invalid query parameters",
+      );
     }
 
     const { status, chainId } = parsed.data;
@@ -396,7 +417,9 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     const parsed = GetPositionQuery.safeParse(c.req.query());
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(firstError?.message ?? "Invalid query parameters");
+      throw new ValidationError(
+        firstError?.message ?? "Invalid query parameters",
+      );
     }
 
     const { chainId, checks: checksLimit } = parsed.data;
@@ -407,7 +430,9 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
     });
 
     if (!position) {
-      throw new NotFoundError(`Position not found for tokenId ${tokenId} on chain ${chainId}`);
+      throw new NotFoundError(
+        `Position not found for tokenId ${tokenId} on chain ${chainId}`,
+      );
     }
 
     const checks = await prisma.positionCheck.findMany({
@@ -416,7 +441,10 @@ export function createPositionsRouter(_config: EnvConfig, _signer: SignerAdapter
       take: checksLimit ?? 20,
     });
 
-    return c.json({ success: true, data: jsonSafe({ ...position, checks }) }, 200);
+    return c.json(
+      { success: true, data: jsonSafe({ ...position, checks }) },
+      200,
+    );
   });
 
   return router;
