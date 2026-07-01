@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 const NumericString = z.string().regex(/^\d+$/, "Must be a numeric string");
-const EvmAddress = z.string().refine(
-  (val) => /^0x[a-fA-F0-9]{40}$/.test(val),
-  { message: "Invalid EVM address" },
-);
-
+const EvmAddress = z
+  .string()
+  .refine((val) => /^0x[a-fA-F0-9]{40}$/.test(val), {
+    message: "Invalid EVM address",
+  });
 
 const PoolData = z.object({
   address: EvmAddress,
@@ -43,7 +43,6 @@ export type FromMintBodyValidated = z.infer<typeof FromMintBody>;
 
 export const PositionCheckBody = z.object({
   chainId: z.number().int().positive(),
-  blockNumber: NumericString,
   currentTick: z.number().int(),
   inRange: z.boolean(),
   currentValueUsdt: NumericString,
@@ -93,7 +92,12 @@ export type RebalanceBodyValidated = z.infer<typeof RebalanceBody>;
 
 export const ExitBody = z.object({
   chainId: z.number().int().positive(),
-  exitReason: z.enum(["OOR_TIMEOUT", "DRAWDOWN_STOP", "RUG_TVL_DROP", "MANUAL"]),
+  exitReason: z.enum([
+    "OOR_TIMEOUT",
+    "DRAWDOWN_STOP",
+    "RUG_TVL_DROP",
+    "MANUAL",
+  ]),
   closeTxHash: z.string().startsWith("0x"),
   closeBlockNumber: NumericString,
   amount0Withdrawn: NumericString,
@@ -106,7 +110,16 @@ export const ExitBody = z.object({
 export type ExitBodyValidated = z.infer<typeof ExitBody>;
 
 export const GetPositionsQuery = z.object({
-  status: z.enum(["ACTIVE", "OUT_OF_RANGE", "REBALANCING", "CLOSED", "EXITED", "FAILED"]).optional(),
+  status: z
+    .enum([
+      "ACTIVE",
+      "OUT_OF_RANGE",
+      "REBALANCING",
+      "CLOSED",
+      "EXITED",
+      "FAILED",
+    ])
+    .optional(),
   chainId: z.string().regex(/^\d+$/).transform(Number).optional(),
 });
 
