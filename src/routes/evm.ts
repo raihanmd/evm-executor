@@ -15,6 +15,7 @@ import {
 import {
   ExecuteRequestBody,
   ContractCallRequestBody,
+  MulticallRequestBody,
 } from "../validators/evm.ts";
 import { ValidationError, ForbiddenError } from "../errors/index.ts";
 import { createPublicClientForChain } from "../rpc/index.ts";
@@ -364,6 +365,65 @@ export function createEvmRoutes(
       );
       return c.json({ success: false, message }, 400);
     }
+  });
+
+  router.post("/call-multicall", async (c) => {
+    const logger = getLogger();
+    const bodyRaw = c.get("body") ?? (await c.req.json());
+
+    const parsed = MulticallRequestBody.safeParse(bodyRaw);
+    if (!parsed.success) {
+      throw new ValidationError(
+        parsed.error.errors[0]?.message ?? "Invalid body",
+      );
+    }
+
+    const { chainId, to: rawTo, value, calls } = parsed.data;
+    const to = rawTo as Address;
+
+    // Encode setiap sub-call jadi bytes
+    const encodedCalls: Hex[] = calls.map((call, i) => {
+      try {
+        return encodeFunctionData({
+          abi: call.abi as unknown[],
+          functionName: call.function,
+          args: call.args,
+        });
+      } catch (err) {
+        throw new ValidationError(
+          `Failed to encode call[${i}] (${call.function}): ${err instanceof Error ? err.message : "ABI encoding error"}`,
+        );
+      }
+    });
+
+    const MULTICALL_ABI = [
+      {
+        name: "multicall",
+        type: "function",
+        stateMutability: "payable",
+        inputs: [{ name: "data", type: "bytes[]" }],
+        outputs: [{ name: "results", type: "bytes[]" }],
+      },
+    ] as const;
+
+    const data = encodeFunctionData({
+      abi: MULTICALL_ABI,
+      functionName: "multicall",
+      args: [encodedCalls],
+    });
+
+    logger.info(
+      { chainId, to, callsCount: calls.length },
+      "Executing multicall",
+    );
+
+    const response = await executeService.execute({ chainId, to, value, data });
+
+    if (!response.success) {
+      return c.json(response, 400);
+    }
+
+    return c.json(response, 200);
   });
 
   return router;
