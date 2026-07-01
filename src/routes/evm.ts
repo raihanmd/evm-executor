@@ -154,10 +154,10 @@ export function createEvmRoutes(
     });
 
     if (!response.success) {
-      return c.json(response, 400);
+      return c.json(jsonSafe(response), 400);
     }
 
-    return c.json(response, 200);
+    return c.json(jsonSafe(response), 200);
   });
 
   router.post("/call", async (c) => {
@@ -229,7 +229,7 @@ export function createEvmRoutes(
     });
 
     if (!response.success) {
-      return c.json(response, 400);
+      return c.json(jsonSafe(response), 400);
     }
 
     let events: unknown[] = [];
@@ -246,7 +246,7 @@ export function createEvmRoutes(
 
     const { logs: _rawLogs, ...rest } = response;
 
-    return c.json({ ...rest, events: jsonSafe(events) }, 200);
+    return c.json(jsonSafe({ ...rest, events }), 200);
   });
 
   /**
@@ -420,10 +420,10 @@ export function createEvmRoutes(
     const response = await executeService.execute({ chainId, to, value, data });
 
     if (!response.success) {
-      return c.json(response, 400);
+      return c.json(jsonSafe(response), 400);
     }
 
-    return c.json(response, 200);
+    return c.json(jsonSafe(response), 200);
   });
 
   return router;
