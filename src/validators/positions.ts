@@ -39,6 +39,16 @@ export const FromMintBody = z.object({
 
 export type FromMintBodyValidated = z.infer<typeof FromMintBody>;
 
+export const RecordUncollectedFeeBody = z.object({
+  chainId: z.number().int().positive(),
+  tokenId: z.string().regex(/^\d+$/, "tokenId must be a numeric string"),
+  uncollectedFeeUsd: NumericString.optional(),
+});
+
+export type RecordUncollectedFeeBodyValidated = z.infer<
+  typeof RecordUncollectedFeeBody
+>;
+
 export const PositionCheckBody = z.object({
   chainId: z.number().int().positive(),
   currentTick: z.number().int(),

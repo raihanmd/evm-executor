@@ -68,6 +68,7 @@ model Position {
   finalSweepAmountUsdt String?
   pnlUsdt              String?
   pnlPercent           String?
+  uncollectedFeeUsd    String?
 
   previousPositionId String?   @unique
   previousPosition   Position? @relation("Lineage", fields: [previousPositionId], references: [id])

@@ -9,6 +9,7 @@ import {
   ExitBody,
   GetPositionsQuery,
   GetPositionQuery,
+  RecordUncollectedFeeBody,
 } from "../validators/positions.ts";
 import { ValidationError, NotFoundError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
@@ -104,6 +105,36 @@ export function createPositionsRouter(
         updatedAt: nowUnix,
         configSnapshot: configSnapshot as Prisma.InputJsonValue,
         recipientWallet: positionFields.recipientWallet,
+      },
+    });
+
+    logger.info({ positionId: position.id, tokenId }, "Position recorded");
+
+    return c.json({ success: true, data: jsonSafe(position) }, 200);
+  });
+
+  router.patch("/record-uncollected-fee", async (c) => {
+    const logger = getLogger();
+    const bodyRaw = c.get("body") ?? (await c.req.json());
+
+    const parsed = RecordUncollectedFeeBody.safeParse(bodyRaw);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      throw new ValidationError(firstError?.message ?? "Invalid request body");
+    }
+
+    const { chainId, tokenId, uncollectedFeeUsd } = parsed.data;
+
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
+    logger.info({ chainId, tokenId }, "Recording minted position");
+
+    const position = await prisma.position.update({
+      where: { chainId_tokenId: { chainId, tokenId } },
+      data: {
+        uncollectedFeeUsd: uncollectedFeeUsd,
+        lastInRangeAt: nowUnix,
+        updatedAt: nowUnix,
       },
     });
 
