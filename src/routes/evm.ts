@@ -11,6 +11,9 @@ import {
   encodeFunctionData,
   decodeFunctionResult,
   parseEventLogs,
+  type Abi,
+  decodeEventLog,
+  type Log,
 } from "viem";
 import {
   ExecuteRequestBody,
@@ -22,6 +25,7 @@ import { ValidationError, ForbiddenError } from "../errors/index.ts";
 import { createPublicClientForChain } from "../rpc/index.ts";
 import { getLogger } from "../logger/index.ts";
 import { jsonSafe } from "../lib/json-safe.ts";
+import { assertAbi } from "../utils/assert-abi.ts";
 
 /** Parameter names that control fund/asset destination — must equal signer */
 const SENSITIVE_ADDRESS_PARAMS = new Set(["recipient", "to", "owner", "dst"]);
@@ -418,7 +422,34 @@ export function createEvmRoutes(
       "Executing multicall",
     );
 
+    const abiSources: { address: Address; abi: Abi }[] = calls.map(
+      (call, i) => ({
+        address: to,
+        abi: assertAbi(call.abi, `call[${i}]`),
+      }),
+    );
+
     const response = await executeService.execute({ chainId, to, value, data });
+
+    if (response.success && response.logs) {
+      const decodedLogs = response.logs.map((log: Log) => {
+        for (const src of abiSources) {
+          try {
+            const decoded = decodeEventLog({
+              abi: src.abi,
+              data: log.data as Hex,
+              topics: log.topics as [Hex, ...Hex[]],
+            });
+            return { ...log, decoded };
+          } catch {
+            continue;
+          }
+        }
+        return { ...log, decoded: null };
+      });
+
+      return c.json(jsonSafe({ ...response, logs: decodedLogs }), 200);
+    }
 
     if (!response.success) {
       return c.json(jsonSafe(response), 400);
@@ -436,14 +467,18 @@ export function createEvmRoutes(
     try {
       poolAddress = getAddress(rawPoolAddress);
     } catch {
-      throw new ValidationError("Invalid poolAddress: must be a valid EVM address");
+      throw new ValidationError(
+        "Invalid poolAddress: must be a valid EVM address",
+      );
     }
 
     // Validate query params
     const parsed = PoolVolumeQuery.safeParse(c.req.query());
     if (!parsed.success) {
       const firstError = parsed.error.errors[0];
-      throw new ValidationError(firstError?.message ?? "Invalid query parameters");
+      throw new ValidationError(
+        firstError?.message ?? "Invalid query parameters",
+      );
     }
 
     const { chainId, fromBlock, toBlock } = parsed.data;
@@ -476,12 +511,24 @@ export function createEvmRoutes(
     ] as const;
 
     const resolvedFromBlock: bigint | "earliest" | "latest" | undefined =
-      fromBlock ? (/^\d+$/.test(fromBlock) ? BigInt(fromBlock) : fromBlock as "earliest" | "latest") : "earliest";
-    const resolvedToBlock: bigint | "latest" | "earliest" | undefined =
-      toBlock ? (/^\d+$/.test(toBlock) ? BigInt(toBlock) : toBlock as "latest" | "earliest") : "latest";
+      fromBlock
+        ? /^\d+$/.test(fromBlock)
+          ? BigInt(fromBlock)
+          : (fromBlock as "earliest" | "latest")
+        : "earliest";
+    const resolvedToBlock: bigint | "latest" | "earliest" | undefined = toBlock
+      ? /^\d+$/.test(toBlock)
+        ? BigInt(toBlock)
+        : (toBlock as "latest" | "earliest")
+      : "latest";
 
     logger.info(
-      { chainId, poolAddress, fromBlock: resolvedFromBlock?.toString() ?? fromBlock, toBlock: resolvedToBlock?.toString() ?? toBlock },
+      {
+        chainId,
+        poolAddress,
+        fromBlock: resolvedFromBlock?.toString() ?? fromBlock,
+        toBlock: resolvedToBlock?.toString() ?? toBlock,
+      },
       "Fetching pool volume",
     );
 
@@ -531,8 +578,15 @@ export function createEvmRoutes(
         200,
       );
     } catch (err) {
-      const rpcError = err as { details?: string; shortMessage?: string; message?: string };
-      const message = rpcError.details ?? rpcError.shortMessage ?? "Failed to fetch swap logs";
+      const rpcError = err as {
+        details?: string;
+        shortMessage?: string;
+        message?: string;
+      };
+      const message =
+        rpcError.details ??
+        rpcError.shortMessage ??
+        "Failed to fetch swap logs";
       logger.warn({ err, poolAddress, chainId }, message);
       return c.json({ success: false, message }, 400);
     }
