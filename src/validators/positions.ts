@@ -42,7 +42,7 @@ export type FromMintBodyValidated = z.infer<typeof FromMintBody>;
 export const RecordUncollectedFeeBody = z.object({
   chainId: z.number().int().positive(),
   tokenId: z.string().regex(/^\d+$/, "tokenId must be a numeric string"),
-  uncollectedFeeUsd: NumericString.optional(),
+  uncollectedFeeUsd: z.string().optional(),
 });
 
 export type RecordUncollectedFeeBodyValidated = z.infer<
