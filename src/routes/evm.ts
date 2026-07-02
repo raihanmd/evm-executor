@@ -16,6 +16,7 @@ import {
   ExecuteRequestBody,
   ContractCallRequestBody,
   MulticallRequestBody,
+  PoolVolumeQuery,
 } from "../validators/evm.ts";
 import { ValidationError, ForbiddenError } from "../errors/index.ts";
 import { createPublicClientForChain } from "../rpc/index.ts";
@@ -424,6 +425,117 @@ export function createEvmRoutes(
     }
 
     return c.json(jsonSafe(response), 200);
+  });
+
+  router.get("/pool-volume/:poolAddress", async (c) => {
+    const logger = getLogger();
+    const { poolAddress: rawPoolAddress } = c.req.param();
+
+    // Validate poolAddress
+    let poolAddress: Address;
+    try {
+      poolAddress = getAddress(rawPoolAddress);
+    } catch {
+      throw new ValidationError("Invalid poolAddress: must be a valid EVM address");
+    }
+
+    // Validate query params
+    const parsed = PoolVolumeQuery.safeParse(c.req.query());
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      throw new ValidationError(firstError?.message ?? "Invalid query parameters");
+    }
+
+    const { chainId, fromBlock, toBlock } = parsed.data;
+
+    // Chain config guard
+    const chainConfig = config.chains.get(chainId);
+    if (!chainConfig) {
+      return c.json(
+        { success: false, message: `Chain ${chainId} is not configured` },
+        400,
+      );
+    }
+
+    const publicClient = createPublicClientForChain(chainConfig);
+
+    const SWAP_EVENT_ABI = [
+      {
+        type: "event",
+        name: "Swap",
+        inputs: [
+          { name: "sender", type: "address", indexed: true },
+          { name: "recipient", type: "address", indexed: true },
+          { name: "amount0", type: "int256", indexed: false },
+          { name: "amount1", type: "int256", indexed: false },
+          { name: "sqrtPriceX96", type: "uint160", indexed: false },
+          { name: "liquidity", type: "uint128", indexed: false },
+          { name: "tick", type: "int24", indexed: false },
+        ],
+      },
+    ] as const;
+
+    const resolvedFromBlock: bigint | "earliest" | "latest" | undefined =
+      fromBlock ? (/^\d+$/.test(fromBlock) ? BigInt(fromBlock) : fromBlock as "earliest" | "latest") : "earliest";
+    const resolvedToBlock: bigint | "latest" | "earliest" | undefined =
+      toBlock ? (/^\d+$/.test(toBlock) ? BigInt(toBlock) : toBlock as "latest" | "earliest") : "latest";
+
+    logger.info(
+      { chainId, poolAddress, fromBlock: resolvedFromBlock?.toString() ?? fromBlock, toBlock: resolvedToBlock?.toString() ?? toBlock },
+      "Fetching pool volume",
+    );
+
+    try {
+      const logs = await publicClient.getLogs({
+        address: poolAddress,
+        event: SWAP_EVENT_ABI[0],
+        fromBlock: resolvedFromBlock,
+        toBlock: resolvedToBlock,
+      });
+
+      // Setiap swap: volume = abs(amount0) dalam token0 terms
+      const swaps = logs.map((log) => ({
+        blockNumber: log.blockNumber?.toString(),
+        txHash: log.transactionHash,
+        amount0: log.args.amount0?.toString(),
+        amount1: log.args.amount1?.toString(),
+        tick: log.args.tick,
+      }));
+
+      // Volume = sum abs(amount0) kalau token0 = USDT
+      const volumeRaw = logs.reduce((sum, log) => {
+        const a0 = log.args.amount0 ?? 0n;
+        return sum + (a0 < 0n ? -a0 : a0);
+      }, 0n);
+
+      const volumeUsdt = Number(volumeRaw) / 1e18;
+
+      logger.info(
+        { poolAddress, swapCount: logs.length, volumeUsdt },
+        "Pool volume calculated",
+      );
+
+      return c.json(
+        jsonSafe({
+          success: true,
+          data: {
+            poolAddress,
+            chainId,
+            fromBlock: fromBlock ?? "earliest",
+            toBlock: toBlock ?? "latest",
+            swapCount: logs.length,
+            volumeUsdt,
+            swaps,
+          },
+        }),
+        200,
+      );
+    } catch (err) {
+      const rpcError = err as { details?: string; shortMessage?: string; message?: string };
+      const message = rpcError.details ?? rpcError.shortMessage ?? "Failed to fetch swap logs";
+      logger.warn({ err, poolAddress, chainId }, message);
+      return c.json({ success: false, message }, 400);
+    }
   });
 
   return router;

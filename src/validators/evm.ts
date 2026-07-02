@@ -74,3 +74,16 @@ export const MulticallRequestBody = z.object({
 });
 
 export type MulticallRequestValidated = z.infer<typeof MulticallRequestBody>;
+
+const BlockRef = z.string().refine(
+  (val) => /^\d+$/.test(val) || val === "earliest" || val === "latest" || val === "pending",
+  { message: "Must be a numeric block number or 'earliest'/'latest'/'pending'" },
+);
+
+export const PoolVolumeQuery = z.object({
+  chainId: z.string().regex(/^\d+$/, "chainId must be a numeric string").transform(Number),
+  fromBlock: BlockRef.optional(),
+  toBlock: BlockRef.optional(),
+});
+
+export type PoolVolumeQueryValidated = z.infer<typeof PoolVolumeQuery>;
