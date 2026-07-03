@@ -70,6 +70,8 @@ model Position {
   pnlPercent           String?
   uncollectedFeeUsd    String?
   peakPnlPct           String?
+  lastToken0Amount     String?
+  lastToken1Amount     String?
 
   previousPositionId String?   @unique
   previousPosition   Position? @relation("Lineage", fields: [previousPositionId], references: [id])

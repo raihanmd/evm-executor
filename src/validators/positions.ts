@@ -44,6 +44,9 @@ export const RecordUncollectedFeeBody = z.object({
   tokenId: z.string().regex(/^\d+$/, "tokenId must be a numeric string"),
   uncollectedFeeUsd: z.string().optional(),
   pnlPct: z.string().optional().default("0"),
+  pnlUsdt: z.string().optional(),
+  lastToken0Amount: z.string().optional(),
+  lastToken1Amount: z.string().optional(),
 });
 
 export type RecordUncollectedFeeBodyValidated = z.infer<

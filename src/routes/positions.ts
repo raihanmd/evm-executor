@@ -123,7 +123,15 @@ export function createPositionsRouter(
       throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
-    const { chainId, tokenId, uncollectedFeeUsd, pnlPct } = parsed.data;
+    const {
+      chainId,
+      tokenId,
+      uncollectedFeeUsd,
+      pnlPct,
+      pnlUsdt,
+      lastToken0Amount,
+      lastToken1Amount,
+    } = parsed.data;
 
     const nowUnix = BigInt(Math.floor(Date.now() / 1000));
 
@@ -139,6 +147,11 @@ export function createPositionsRouter(
         uncollectedFeeUsd: uncollectedFeeUsd,
         lastInRangeAt: nowUnix,
         updatedAt: nowUnix,
+        lastCheckedAt: nowUnix,
+        pnlUsdt: pnlUsdt ?? lastPosition?.pnlUsdt,
+        pnlPercent: pnlPct ?? lastPosition?.pnlPercent,
+        lastToken0Amount: lastToken0Amount ?? lastPosition?.lastToken0Amount,
+        lastToken1Amount: lastToken1Amount ?? lastPosition?.lastToken1Amount,
         peakPnlPct:
           +pnlPct > +(lastPosition?.peakPnlPct ?? "-10")
             ? pnlPct
