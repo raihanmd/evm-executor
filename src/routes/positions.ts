@@ -123,11 +123,15 @@ export function createPositionsRouter(
       throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
-    const { chainId, tokenId, uncollectedFeeUsd } = parsed.data;
+    const { chainId, tokenId, uncollectedFeeUsd, pnlPct } = parsed.data;
 
     const nowUnix = BigInt(Math.floor(Date.now() / 1000));
 
     logger.info({ chainId, tokenId }, "Recording minted position");
+
+    const lastPosition = await prisma.position.findUnique({
+      where: { chainId_tokenId: { chainId, tokenId } },
+    });
 
     const position = await prisma.position.update({
       where: { chainId_tokenId: { chainId, tokenId } },
@@ -135,6 +139,10 @@ export function createPositionsRouter(
         uncollectedFeeUsd: uncollectedFeeUsd,
         lastInRangeAt: nowUnix,
         updatedAt: nowUnix,
+        peakPnlPct:
+          +pnlPct > +(lastPosition?.peakPnlPct ?? "0")
+            ? pnlPct
+            : (lastPosition?.peakPnlPct ?? "0"),
       },
     });
 
