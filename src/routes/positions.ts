@@ -140,9 +140,9 @@ export function createPositionsRouter(
         lastInRangeAt: nowUnix,
         updatedAt: nowUnix,
         peakPnlPct:
-          +pnlPct > +(lastPosition?.peakPnlPct ?? "0")
+          +pnlPct > +(lastPosition?.peakPnlPct ?? "-10")
             ? pnlPct
-            : (lastPosition?.peakPnlPct ?? "0"),
+            : (lastPosition?.peakPnlPct ?? "-10"),
       },
     });
 
