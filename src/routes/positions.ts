@@ -455,7 +455,10 @@ export function createPositionsRouter(
     const positions = await prisma.position.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      include: { pool: true },
+      include: {
+        pool: true,
+        checks: { orderBy: { checkedAt: "desc" }, take: 5 },
+      },
     });
 
     logger.info({ count: positions.length }, "Listed positions");
