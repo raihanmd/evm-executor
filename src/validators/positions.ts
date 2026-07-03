@@ -110,7 +110,7 @@ export const ExitBody = z.object({
     "RUG_TVL_DROP",
     "LOW_VOLUME",
     "MANUAL",
-  ]),
+  ]).nullable(),
   closeTxHash: z.string().startsWith("0x"),
   closeBlockNumber: NumericString,
   amount0Withdrawn: NumericString,
