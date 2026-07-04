@@ -449,7 +449,7 @@ export function createPositionsRouter(
     const { status, chainId } = parsed.data;
 
     const where: Prisma.PositionWhereInput = {};
-    if (status) where.status = status;
+    if (status) where.status = { in: status };
     if (chainId) where.chainId = chainId;
 
     const positions = await prisma.position.findMany({

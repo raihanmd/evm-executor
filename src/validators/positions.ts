@@ -122,21 +122,37 @@ export const ExitBody = z.object({
 
 export type ExitBodyValidated = z.infer<typeof ExitBody>;
 
+const PositionStatusEnum = z.enum([
+  "ACTIVE",
+  "OUT_OF_RANGE",
+  "REBALANCING",
+  "CLOSED",
+  "EXITED",
+  "FAILED",
+]);
+
 export const GetPositionsQuery = z.object({
   status: z
-    .enum([
-      "ACTIVE",
-      "OUT_OF_RANGE",
-      "REBALANCING",
-      "CLOSED",
-      "EXITED",
-      "FAILED",
-    ])
-    .optional(),
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const parts = val.split(",").map((s) => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        const result = PositionStatusEnum.safeParse(p);
+        if (!result.success) {
+          throw new Error(
+            `Invalid status '${p}'. Must be one of: ACTIVE, OUT_OF_RANGE, REBALANCING, CLOSED, EXITED, FAILED`,
+          );
+        }
+      }
+      return parts as PositionStatus[];
+    }),
   chainId: z.string().regex(/^\d+$/).transform(Number).optional(),
 });
 
 export type GetPositionsQueryValidated = z.infer<typeof GetPositionsQuery>;
+export type PositionStatus = z.infer<typeof PositionStatusEnum>;
 
 export const GetPositionQuery = z.object({
   chainId: z.string().regex(/^\d+$/).transform(Number),
