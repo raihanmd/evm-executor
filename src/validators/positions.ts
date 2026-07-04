@@ -104,13 +104,16 @@ export type RebalanceBodyValidated = z.infer<typeof RebalanceBody>;
 
 export const ExitBody = z.object({
   chainId: z.number().int().positive(),
-  exitReason: z.enum([
-    "OOR_TIMEOUT",
-    "DRAWDOWN_STOP",
-    "RUG_TVL_DROP",
-    "LOW_VOLUME",
-    "MANUAL",
-  ]).nullable(),
+  exitReason: z
+    .enum([
+      "OOR_TIMEOUT",
+      "DRAWDOWN_STOP",
+      "RUG_TVL_DROP",
+      "LOW_VOLUME",
+      "MANUAL",
+      "PROFIT_TARGET_REACHED",
+    ])
+    .nullable(),
   closeTxHash: z.string().startsWith("0x"),
   closeBlockNumber: NumericString,
   amount0Withdrawn: NumericString,
@@ -137,7 +140,10 @@ export const GetPositionsQuery = z.object({
     .optional()
     .transform((val) => {
       if (!val) return undefined;
-      const parts = val.split(",").map((s) => s.trim()).filter(Boolean);
+      const parts = val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       for (const p of parts) {
         const result = PositionStatusEnum.safeParse(p);
         if (!result.success) {

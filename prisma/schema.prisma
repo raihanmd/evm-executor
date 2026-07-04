@@ -144,6 +144,7 @@ enum ExitReason {
   LOW_VOLUME
   REBALANCED
   MANUAL
+  PROFIT_TARGET_REACHED
 }
 
 enum CheckDecision {
