@@ -446,11 +446,40 @@ export function createPositionsRouter(
       );
     }
 
-    const { status, chainId } = parsed.data;
+    const { status, exitReason, closedFrom, closedTo, pnlSign, pool, chainId } =
+      parsed.data;
 
     const where: Prisma.PositionWhereInput = {};
     if (status) where.status = { in: status };
+    if (exitReason) where.exitReason = { in: exitReason };
+    if (closedFrom)
+      where.updatedAt = {
+        ...(where.updatedAt as object),
+        gte: BigInt(closedFrom),
+      };
+    if (closedTo)
+      where.updatedAt = {
+        ...(where.updatedAt as object),
+        lte: BigInt(closedTo),
+      };
+    if (pnlSign === "negative") where.pnlUsdt = { startsWith: "-" };
     if (chainId) where.chainId = chainId;
+
+    if (pool === "true") {
+      const poolIds = await prisma.position.findMany({
+        where,
+        select: { poolId: true },
+        distinct: ["poolId"],
+      });
+
+      const pools = await prisma.pool.findMany({
+        where: { id: { in: poolIds.map((p) => p.poolId) } },
+      });
+
+      logger.info({ count: pools.length }, "Listed pools (grouped)");
+
+      return c.json({ success: true, data: jsonSafe(pools) }, 200);
+    }
 
     const positions = await prisma.position.findMany({
       where,
