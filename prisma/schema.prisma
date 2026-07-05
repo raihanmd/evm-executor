@@ -146,6 +146,7 @@ enum ExitReason {
   MANUAL
   PROFIT_TARGET_REACHED
   STOP_LOSS
+  STALE_NO_RECOVERY
 }
 
 enum CheckDecision {
