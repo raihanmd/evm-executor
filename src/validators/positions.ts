@@ -112,6 +112,7 @@ export const ExitBody = z.object({
       "LOW_VOLUME",
       "MANUAL",
       "PROFIT_TARGET_REACHED",
+      "STOP_LOSS",
     ])
     .nullable(),
   closeTxHash: z.string().startsWith("0x"),
