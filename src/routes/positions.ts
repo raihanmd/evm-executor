@@ -16,6 +16,7 @@ import { prisma } from "../lib/prisma.ts";
 import { jsonSafe } from "../lib/json-safe.ts";
 import { getLogger } from "../logger/index.ts";
 import type { Prisma } from "@prisma/client";
+import { formatUnits } from "viem";
 
 export function createPositionsRouter(
   _config: EnvConfig,
@@ -401,12 +402,24 @@ export function createPositionsRouter(
       );
     }
 
-    const deployRaw = BigInt(position.deployAmountUsdt);
-    const sweepRaw = BigInt(finalSweepAmountUsdt);
+    const deployRaw = BigInt(position.deployAmountUsdt); // 1e18
+    const sweepRaw = BigInt(finalSweepAmountUsdt); // 1e18
     const pnlRaw = sweepRaw - deployRaw;
-    const pnlPercentRaw =
-      deployRaw !== 0n ? ((pnlRaw * 1_000_000n) / deployRaw).toString() : "0";
-    const pnlUsdt = pnlRaw.toString();
+
+    // scale factor buat percent, biar presisi 2 desimal ke-preserve sebelum dibagi
+    const PNL_PCT_SCALE = 1_000_000n; // 6 decimals precision
+    const pnlPercentScaled =
+      deployRaw !== 0n ? (pnlRaw * PNL_PCT_SCALE) / deployRaw : 0n;
+
+    // convert ke number buat toFixed (aman karena udah discale jadi kecil)
+    const pnlPercent = (
+      (Number(pnlPercentScaled) / Number(PNL_PCT_SCALE)) *
+      100
+    ).toFixed(2);
+
+    // pnlUsdt: bagi dengan 1e18, pake formatUnits biar ga kepotong integer division
+    const pnlUsdt = formatUnits(pnlRaw, 18); // string, misal "12.345678901234567890"
+    const pnlUsdtDisplay = Number(pnlUsdt).toFixed(2);
 
     const updated = await prisma.position.update({
       where: { id: position.id },
@@ -421,14 +434,14 @@ export function createPositionsRouter(
         feesCollected0,
         feesCollected1,
         finalSweepAmountUsdt,
-        pnlUsdt,
-        pnlPercent: pnlPercentRaw,
+        pnlUsdt, // simpen full precision string kalau kolomnya Decimal/String
+        pnlPercent: pnlUsdtDisplay, // "1.23" style string
         updatedAt: nowUnix,
       },
     });
 
     logger.info(
-      { positionId: updated.id, pnlUsdt, pnlPercent: pnlPercentRaw },
+      { positionId: updated.id, pnlUsdt, pnlPercent },
       "Position exited",
     );
 
