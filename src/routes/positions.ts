@@ -166,7 +166,7 @@ export function createPositionsRouter(
     return c.json({ success: true, data: jsonSafe(position) }, 200);
   });
 
-  router.patch("/force-exit", async (c) => {
+  router.post("/force-exit", async (c) => {
     const logger = getLogger();
     const bodyRaw = c.get("body") ?? (await c.req.json());
 
