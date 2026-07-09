@@ -10,6 +10,7 @@ import {
   GetPositionsQuery,
   GetPositionQuery,
   RecordUncollectedFeeBody,
+  ForceExitBody,
 } from "../validators/positions.ts";
 import { ValidationError, NotFoundError } from "../errors/index.ts";
 import { prisma } from "../lib/prisma.ts";
@@ -157,6 +158,37 @@ export function createPositionsRouter(
           +pnlPct > +(lastPosition?.peakPnlPct ?? "-10")
             ? pnlPct
             : (lastPosition?.peakPnlPct ?? "-10"),
+      },
+    });
+
+    logger.info({ positionId: position.id, tokenId }, "Position recorded");
+
+    return c.json({ success: true, data: jsonSafe(position) }, 200);
+  });
+
+  router.patch("/force-exit", async (c) => {
+    const logger = getLogger();
+    const bodyRaw = c.get("body") ?? (await c.req.json());
+
+    const parsed = ForceExitBody.safeParse(bodyRaw);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      throw new ValidationError(firstError?.message ?? "Invalid request body");
+    }
+
+    const { chainId, tokenId } = parsed.data;
+
+    const nowUnix = BigInt(Math.floor(Date.now() / 1000));
+
+    logger.info({ chainId, tokenId }, "Recording minted position");
+
+    const position = await prisma.position.update({
+      where: { chainId_tokenId: { chainId, tokenId } },
+      data: {
+        status: "EXITED",
+        exitReason: "MANUAL",
+        closedAt: nowUnix,
+        updatedAt: nowUnix,
       },
     });
 

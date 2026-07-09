@@ -53,6 +53,13 @@ export type RecordUncollectedFeeBodyValidated = z.infer<
   typeof RecordUncollectedFeeBody
 >;
 
+export const ForceExitBody = z.object({
+  chainId: z.number().int().positive(),
+  tokenId: z.string().regex(/^\d+$/, "tokenId must be a numeric string"),
+});
+
+export type ForceExitBodyValidated = z.infer<typeof ForceExitBody>;
+
 export const PositionCheckBody = z.object({
   chainId: z.number().int().positive(),
   currentTick: z.number().int(),
