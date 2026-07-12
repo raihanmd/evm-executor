@@ -40,6 +40,7 @@ export function createPositionsRouter(
       tokenId,
       pool: poolData,
       configSnapshot,
+      deployRationale,
       ...positionFields
     } = parsed.data;
 
@@ -107,6 +108,7 @@ export function createPositionsRouter(
         updatedAt: nowUnix,
         configSnapshot: configSnapshot as Prisma.InputJsonValue,
         recipientWallet: positionFields.recipientWallet,
+        deployRationale: deployRationale,
       },
     });
 
@@ -176,7 +178,7 @@ export function createPositionsRouter(
       throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
-    const { chainId, tokenId } = parsed.data;
+    const { chainId, tokenId, exitRationale } = parsed.data;
 
     const nowUnix = BigInt(Math.floor(Date.now() / 1000));
 
@@ -189,6 +191,7 @@ export function createPositionsRouter(
         exitReason: "MANUAL",
         closedAt: nowUnix,
         updatedAt: nowUnix,
+        exitRationale: exitRationale,
       },
     });
 
@@ -419,6 +422,7 @@ export function createPositionsRouter(
       feesCollected0,
       feesCollected1,
       finalSweepAmountUsdt,
+      exitRationale,
     } = parsed.data;
 
     const nowUnix = BigInt(Math.floor(Date.now() / 1000));
@@ -469,6 +473,7 @@ export function createPositionsRouter(
         pnlUsdt, // simpen full precision string kalau kolomnya Decimal/String
         pnlPercent: pnlUsdtDisplay, // "1.23" style string
         updatedAt: nowUnix,
+        exitRationale: exitRationale,
       },
     });
 

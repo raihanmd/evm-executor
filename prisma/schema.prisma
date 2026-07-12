@@ -79,6 +79,8 @@ model Position {
   rootPositionId     String?
 
   configSnapshot  Json
+  deployRationale Json?
+  exitRationale   Json?
   recipientWallet String
 
   checks PositionCheck[]

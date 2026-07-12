@@ -35,6 +35,7 @@ export const FromMintBody = z.object({
   mintBlockNumber: NumericString,
   configSnapshot: z.record(z.unknown()),
   recipientWallet: EvmAddress,
+  deployRationale: z.string().optional(),
 });
 
 export type FromMintBodyValidated = z.infer<typeof FromMintBody>;
@@ -56,6 +57,7 @@ export type RecordUncollectedFeeBodyValidated = z.infer<
 export const ForceExitBody = z.object({
   chainId: z.number().int().positive(),
   tokenId: z.string().regex(/^\d+$/, "tokenId must be a numeric string"),
+  exitRationale: z.string().optional(),
 });
 
 export type ForceExitBodyValidated = z.infer<typeof ForceExitBody>;
@@ -130,6 +132,7 @@ export const ExitBody = z.object({
   feesCollected0: NumericString,
   feesCollected1: NumericString,
   finalSweepAmountUsdt: NumericString,
+  exitRationale: z.string().optional(),
 });
 
 export type ExitBodyValidated = z.infer<typeof ExitBody>;
