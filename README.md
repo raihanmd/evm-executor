@@ -7,7 +7,7 @@ Production-grade EVM transaction signing and broadcasting service for SkillWalle
 This service is intentionally "dumb". It receives pre-built transaction parameters and safely signs + broadcasts them. It does **not** generate calldata, build swaps, interact with DeFi protocols, or manage portfolios — those responsibilities belong to upstream services.
 
 ```
-Scheduler → Strategy Engine → Calldata Builder → Executor → Signer → Broadcast → tx hash
+Scheduler → Strategy Engine → Calldata Builder → Executor → Signer → Broadcast
 ```
 
 ## Architecture
