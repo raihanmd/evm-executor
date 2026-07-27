@@ -22,6 +22,7 @@ export const ExecuteRequestBody = z.object({
       (val) => val.length % 2 === 0,
       "data must have even length (hex-encoded bytes)",
     ),
+  abi: z.array(z.record(z.unknown())).optional(),
 });
 
 export type ExecuteRequestValidated = z.infer<typeof ExecuteRequestBody>;

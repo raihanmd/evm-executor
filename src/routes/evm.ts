@@ -142,7 +142,7 @@ export function createEvmRoutes(
       throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
-    const { chainId, to: rawTo, value, data: rawData } = parsed.data;
+    const { chainId, to: rawTo, value, data: rawData, abi } = parsed.data;
     const to = rawTo as Address;
     const data = rawData as Hex;
 
@@ -160,6 +160,19 @@ export function createEvmRoutes(
 
     if (!response.success) {
       return c.json(jsonSafe(response), 400);
+    }
+
+    if (abi && response.logs && response.logs.length > 0) {
+      try {
+        const events = parseEventLogs({
+          abi: abi,
+          logs: response.logs,
+        });
+        const { logs: _rawLogs, ...rest } = response;
+        return c.json(jsonSafe({ ...rest, events }), 200);
+      } catch (err) {
+        logger.warn({ err }, "Failed to decode event logs, returning raw logs");
+      }
     }
 
     return c.json(jsonSafe(response), 200);
