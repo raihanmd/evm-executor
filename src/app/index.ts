@@ -12,9 +12,15 @@ import { createPositionsRouter } from "../routes/positions.ts";
 import { createPoolsRouter } from "../routes/pools.ts";
 import { createTxLogRouter } from "../routes/tx-log.ts";
 import type { SignerAdapter } from "../signer/types.ts";
+import { SignerRegistry } from "../signer/registry.ts";
 
-export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv> {
+export function createApp(
+  config: EnvConfig,
+  signers: SignerRegistry | SignerAdapter,
+): Hono<AppEnv> {
   const logger = createLogger(config.logLevel);
+  const registry =
+    signers instanceof SignerRegistry ? signers : SignerRegistry.single(signers);
 
   const app = new Hono<AppEnv>();
 
@@ -37,17 +43,17 @@ export function createApp(config: EnvConfig, signer: SignerAdapter): Hono<AppEnv
   app.use(idempotencyMiddleware());
 
   // Routes — EVM
-  const evmRouter = createEvmRoutes(config, signer);
+  const evmRouter = createEvmRoutes(config, registry);
   app.route("/v1/evm", evmRouter);
 
   // Routes — LP Position Tracking
-  const positionsRouter = createPositionsRouter(config, signer);
+  const positionsRouter = createPositionsRouter(config, registry);
   app.route("/v1/positions", positionsRouter);
 
-  const poolsRouter = createPoolsRouter(config, signer);
+  const poolsRouter = createPoolsRouter(config, registry);
   app.route("/v1/pools", poolsRouter);
 
-  const txLogRouter = createTxLogRouter(config, signer);
+  const txLogRouter = createTxLogRouter(config, registry);
   app.route("/v1/tx-log", txLogRouter);
 
   logger.info("Application initialized");

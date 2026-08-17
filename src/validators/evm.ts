@@ -1,29 +1,70 @@
 import { z } from "zod";
 import { getAddress } from "viem";
 
-export const ExecuteRequestBody = z.object({
-  chainId: z.number().int().positive(),
-  to: z.string().refine(
-    (val) => {
-      try {
-        getAddress(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Invalid 'to' address" },
-  ),
-  value: z.string().regex(/^\d+$/, "value must be a numeric string"),
-  data: z
-    .string()
-    .startsWith("0x", "data must start with 0x")
-    .refine(
-      (val) => val.length % 2 === 0,
-      "data must have even length (hex-encoded bytes)",
+const WeiString = z.string().regex(/^\d+$/, "must be a numeric string (wei)");
+const MultiplierString = z
+  .string()
+  .regex(/^\d+(\.\d+)?$/, "must be a numeric string (e.g. 3.0)");
+
+export const ExecuteRequestBody = z
+  .object({
+    chainId: z.number().int().positive(),
+    to: z.string().refine(
+      (val) => {
+        try {
+          getAddress(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Invalid 'to' address" },
     ),
-  abi: z.array(z.record(z.unknown())).optional(),
-});
+    value: z.string().regex(/^\d+$/, "value must be a numeric string"),
+    data: z
+      .string()
+      .startsWith("0x", "data must start with 0x")
+      .refine(
+        (val) => val.length % 2 === 0,
+        "data must have even length (hex-encoded bytes)",
+      ),
+    abi: z.array(z.record(z.unknown())).optional(),
+    // Fee control (all optional — absent = auto-estimate, current behavior)
+    gasPrice: WeiString.optional(),
+    maxFeePerGas: WeiString.optional(),
+    maxPriorityFeePerGas: WeiString.optional(),
+    gasPriceMultiplier: MultiplierString.optional(),
+    gasLimit: WeiString.optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.gasPrice != null && val.maxFeePerGas != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "cannot set both legacy gasPrice and EIP-1559 maxFeePerGas",
+      });
+    }
+    const hasAbsolute =
+      val.gasPrice != null ||
+      val.maxFeePerGas != null ||
+      val.maxPriorityFeePerGas != null;
+    if (val.gasPriceMultiplier != null && hasAbsolute) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "cannot combine gasPriceMultiplier with gasPrice/maxFeePerGas/maxPriorityFeePerGas",
+      });
+    }
+    if (
+      val.gasPriceMultiplier != null &&
+      Number.parseFloat(val.gasPriceMultiplier) < 1
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "gasPriceMultiplier must be >= 1",
+      });
+    }
+  });
 
 export type ExecuteRequestValidated = z.infer<typeof ExecuteRequestBody>;
 

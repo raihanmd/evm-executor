@@ -1,7 +1,7 @@
 import { loadConfig } from "./config/index.ts";
 import { createLogger, getLogger } from "./logger/index.ts";
 import { createApp } from "./app/index.ts";
-import { PrivateKeySigner } from "./signer/private-key.ts";
+import { SignerRegistry } from "./signer/registry.ts";
 
 function main(): void {
   // Load configuration from environment
@@ -13,11 +13,11 @@ function main(): void {
 
   logger.info("Starting EVM Transaction Executor");
 
-  // Initialize signer
-  const signer = new PrivateKeySigner(config);
+  // Initialize signer registry (default + additional keys)
+  const signers = SignerRegistry.fromConfig(config);
 
   // Create the Hono application
-  const app = createApp(config, signer);
+  const app = createApp(config, signers);
 
   // Start the server
   const server = Bun.serve({

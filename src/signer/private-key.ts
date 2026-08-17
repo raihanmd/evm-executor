@@ -16,20 +16,22 @@ import type { EnvConfig } from "../config/index.ts";
 export class PrivateKeySigner implements SignerAdapter {
   private readonly config: EnvConfig;
   private readonly chainConfigs: Map<number, ChainConfig>;
+  private readonly privateKey: Address;
 
-  constructor(config: EnvConfig) {
+  constructor(config: EnvConfig, privateKey: Address = config.privateKey) {
     this.config = config;
     this.chainConfigs = config.chains;
+    this.privateKey = privateKey;
   }
 
   async getAddress(): Promise<Address> {
-    const account = privateKeyToAccount(this.config.privateKey);
+    const account = privateKeyToAccount(this.privateKey);
     return account.address;
   }
 
   async sendTransaction(params: TransactionParams): Promise<Hash> {
     const logger = getLogger();
-    const account = privateKeyToAccount(this.config.privateKey);
+    const account = privateKeyToAccount(this.privateKey);
 
     const chainConfig = this.chainConfigs.get(params.chainId);
     if (!chainConfig) {
@@ -79,7 +81,7 @@ export class PrivateKeySigner implements SignerAdapter {
   }
 
   async signMessage(message: Hex): Promise<Hex> {
-    const account = privateKeyToAccount(this.config.privateKey);
+    const account = privateKeyToAccount(this.privateKey);
     return account.signMessage({ message: { raw: message } });
   }
 

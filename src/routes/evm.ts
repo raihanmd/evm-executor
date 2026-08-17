@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types/hono.ts";
 import type { EnvConfig } from "../config/index.ts";
 import type { SignerAdapter } from "../signer/types.ts";
-import { ExecuteService } from "../services/execute.ts";
+import { SignerRegistry } from "../signer/registry.ts";
+import {
+  ExecuteService,
+  type ExecuteOptions,
+} from "../services/execute.ts";
 import {
   type Address,
   type Hex,
@@ -124,10 +128,12 @@ function walkAndValidate(
 
 export function createEvmRoutes(
   config: EnvConfig,
-  signer: SignerAdapter,
+  signers: SignerRegistry | SignerAdapter,
 ): Hono<AppEnv> {
   const router = new Hono<AppEnv>();
-  const executeService = new ExecuteService(config, signer);
+  const registry =
+    signers instanceof SignerRegistry ? signers : SignerRegistry.single(signers);
+  const executeService = new ExecuteService(config, registry);
 
   router.post("/execute", async (c) => {
     const logger = getLogger();
@@ -142,25 +148,71 @@ export function createEvmRoutes(
       throw new ValidationError(firstError?.message ?? "Invalid request body");
     }
 
-    const { chainId, to: rawTo, value, data: rawData, abi } = parsed.data;
+    const {
+      chainId,
+      to: rawTo,
+      value,
+      data: rawData,
+      abi,
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      gasPriceMultiplier,
+      gasLimit,
+    } = parsed.data;
     const to = rawTo as Address;
     const data = rawData as Hex;
 
+    // Optional per-request signer selection (D2) — absent = default signer
+    const signerHeader = c.req.header("X-Signer-Address");
+    const signer = signerHeader ? registry.resolve(signerHeader) : undefined;
+    const signerAddress = await (signer ?? registry).getAddress();
+
+    const opts: ExecuteOptions = {};
+    if (signer) opts.signer = signer;
+    if (gasPrice != null) opts.gasPrice = BigInt(gasPrice);
+    if (maxFeePerGas != null) opts.maxFeePerGas = BigInt(maxFeePerGas);
+    if (maxPriorityFeePerGas != null)
+      opts.maxPriorityFeePerGas = BigInt(maxPriorityFeePerGas);
+    if (gasPriceMultiplier != null)
+      opts.gasPriceMultiplier = BigInt(
+        Math.round(Number.parseFloat(gasPriceMultiplier) * 100),
+      );
+    if (gasLimit != null) opts.gasLimit = BigInt(gasLimit);
+
     logger.info(
-      { chainId, to, dataLength: data.length },
+      {
+        chainId,
+        to,
+        dataLength: data.length,
+        signer: signerAddress,
+        feeMode:
+          gasPriceMultiplier != null
+            ? "multiplier"
+            : gasPrice != null || maxFeePerGas != null
+              ? "absolute"
+              : gasLimit != null
+                ? "gasLimit"
+                : "auto",
+      },
       "Executing transaction request",
     );
 
-    const response = await executeService.execute({
-      chainId,
-      to,
-      value,
-      data,
-    });
+    const response = await executeService.execute(
+      {
+        chainId,
+        to,
+        value,
+        data,
+      },
+      opts,
+    );
 
     if (!response.success) {
       return c.json(jsonSafe(response), 400);
     }
+
+    const withFrom = { ...response, from: signerAddress };
 
     if (abi && response.logs && response.logs.length > 0) {
       try {
@@ -168,14 +220,14 @@ export function createEvmRoutes(
           abi: abi,
           logs: response.logs,
         });
-        const { logs: _rawLogs, ...rest } = response;
+        const { logs: _rawLogs, ...rest } = withFrom;
         return c.json(jsonSafe({ ...rest, events }), 200);
       } catch (err) {
         logger.warn({ err }, "Failed to decode event logs, returning raw logs");
       }
     }
 
-    return c.json(jsonSafe(response), 200);
+    return c.json(jsonSafe(withFrom), 200);
   });
 
   router.post("/call", async (c) => {
@@ -213,7 +265,7 @@ export function createEvmRoutes(
     ) as (Record<string, unknown> & { inputs?: AbiParameter[] }) | undefined;
 
     // Single recursive walk — handles both scalar and tuple(struct) params
-    const signerAddressLower = (await signer.getAddress()).toLowerCase();
+    const signerAddressLower = (await registry.getAddress()).toLowerCase();
     const args: unknown[] =
       functionAbi && Array.isArray(functionAbi.inputs)
         ? functionAbi.inputs.map((input, i) =>
@@ -310,7 +362,7 @@ export function createEvmRoutes(
       | undefined;
 
     // Walk and validate args (same as /call)
-    const signerAddressLower = (await signer.getAddress()).toLowerCase();
+    const signerAddressLower = (await registry.getAddress()).toLowerCase();
     const args: unknown[] =
       functionAbi && Array.isArray(functionAbi.inputs)
         ? functionAbi.inputs.map((input, i) =>

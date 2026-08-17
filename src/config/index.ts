@@ -8,6 +8,7 @@ export interface EnvConfig {
   host: string;
   apiKey: string;
   privateKey: Address;
+  additionalPrivateKeys: string[];
   chains: Map<number, ChainConfig>;
   gasMultiplier: bigint;
   /** Global gas price cap in wei (0 = unlimited) */
@@ -75,6 +76,20 @@ export function loadConfig(): EnvConfig {
     throw new InternalError("PRIVATE_KEY is required");
   }
 
+  const PRIVATE_KEY_RE = /^0x[0-9a-fA-F]{64}$/;
+  const additionalPrivateKeys: string[] = [];
+  for (let i = 2; ; i++) {
+    const raw = env[`PRIVATE_KEY_${i}`];
+    if (!raw || raw.trim() === "") break;
+    const key = raw.trim();
+    if (!PRIVATE_KEY_RE.test(key)) {
+      throw new InternalError(
+        `Invalid PRIVATE_KEY_${i}: must be a 0x-prefixed 64-char hex private key`,
+      );
+    }
+    additionalPrivateKeys.push(key);
+  }
+
   const chainIds = parseChains(env["ALLOWED_CHAINS"]);
   if (chainIds.length === 0) {
     throw new InternalError("At least one ALLOWED_CHAINS must be configured");
@@ -106,6 +121,7 @@ export function loadConfig(): EnvConfig {
     host: env["HOST"] ?? "0.0.0.0",
     apiKey: rawApiKey.trim(),
     privateKey: rawPrivateKey.trim() as Address,
+    additionalPrivateKeys,
     chains,
     gasMultiplier: parseBigInt(rawGasMultiplier, "GAS_MULTIPLIER"),
     maxGasPriceWei,
