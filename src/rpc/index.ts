@@ -6,7 +6,6 @@ import {
   type Chain,
   type Hex,
   type Log,
-  Eip1559FeesNotSupportedError,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { bsc, bscTestnet } from "viem/chains";
@@ -71,9 +70,13 @@ export interface FeeEstimation {
 
 /**
  * Detect the fee model and estimate fees for the given chain.
- * Uses viem's built-in estimateFeesPerGas: tries EIP-1559 first (checks
- * baseFeePerGas on the latest block), falls back to legacy gas price.
- * baseFeeMultiplier=2 preserves the previous formula: maxFee = baseFee*2 + priority.
+ * EIP-1559 txs pay baseFee + priorityFee. The priority fee is taken from
+ * the actual P50 reward of the latest block (real market tip), NOT forced
+ * to a 1 gwei floor — forcing it inflated BSCScan gas price to 1 gwei
+ * when the real tip is ~0.05 gwei. 1 gwei is only a fallback when the
+ * fee history has no reward data (sparse history).
+ * maxFee = baseFee*2 + priority keeps a 2x base-fee buffer (maxFeePerGas
+ * is a ceiling, not the amount paid).
  */
 export async function estimateFees(
   config: ChainConfig,
@@ -82,34 +85,28 @@ export async function estimateFees(
   const logger = getLogger();
 
   try {
-    const { maxFeePerGas, maxPriorityFeePerGas } =
-      await publicClient.estimateFeesPerGas({
-        type: "eip1559",
-        chain: {
-          ...getViemChain(config.chainId),
-          fees: { baseFeeMultiplier: 2 },
-        },
-      });
+    const [block, feeHistory] = await Promise.all([
+      publicClient.getBlock({ blockTag: "latest" }),
+      publicClient.getFeeHistory({
+        blockCount: 1,
+        rewardPercentiles: [50],
+      }),
+    ]);
 
-    // Keep the 1 gwei priority floor used previously when fee history was sparse
-    const priorityFee =
-      maxPriorityFeePerGas < 1_000_000_000n
-        ? 1_000_000_000n
-        : maxPriorityFeePerGas;
-    const maxFee =
-      maxFeePerGas - maxPriorityFeePerGas + priorityFee;
+    const baseFee = block.baseFeePerGas;
+    if (baseFee && baseFee > 0n) {
+      const rewards = feeHistory.reward?.[0]?.[0];
+      const priorityFee = rewards ?? 1_000_000_000n; // only when reward data missing
+      const maxFee = baseFee * 2n + priorityFee;
 
-    return {
-      feeModel: "eip1559",
-      maxFeePerGas: maxFee,
-      maxPriorityFeePerGas: priorityFee,
-    };
-  } catch (err) {
-    if (err instanceof Eip1559FeesNotSupportedError) {
-      logger.info("Chain does not support EIP-1559, falling back to legacy");
-    } else {
-      logger.warn({ err }, "EIP-1559 fee estimation failed, falling back to legacy");
+      return {
+        feeModel: "eip1559",
+        maxFeePerGas: maxFee,
+        maxPriorityFeePerGas: priorityFee,
+      };
     }
+  } catch (err) {
+    logger.warn({ err }, "EIP-1559 detection failed, falling back to legacy");
   }
 
   const gasPrice = await publicClient.getGasPrice();

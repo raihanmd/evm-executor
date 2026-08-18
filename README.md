@@ -126,7 +126,7 @@ X-Signer-Address: 0x<address of PRIVATE_KEY_2's account>
 
 ## Gas Price Control
 
-All gas fields on `/execute` are optional and **opt-in** — requests without them behave exactly as before (auto-estimation with 1 gwei priority floor + `MAX_GAS_PRICE_GWEI` cap).
+All gas fields on `/execute` are optional and **opt-in** — requests without them behave exactly as before (auto-estimation with the real P50 priority reward from fee history + `MAX_GAS_PRICE_GWEI` cap).
 
 The fields are mutually exclusive (400 if combined):
 
