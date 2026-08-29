@@ -9,40 +9,6 @@ This service is intentionally "dumb". It receives pre-built transaction paramete
 ```
 Scheduler → Strategy Engine → Calldata Builder → Executor → Signer → Broadcast
 ```
-
-## Architecture
-
-### Security Layers
-
-| Layer | Protection | Implementation |
-|-------|-----------|----------------|
-| 1 | Internal network only | Deployment-level isolation |
-| 2 | API key authentication | `Authorization: Bearer <key>` |
-| 3 | Idempotency | `X-Request-ID` deduplication |
-| 6 | Chain whitelist | Only configured chain IDs accepted |
-| 7 | Contract whitelist | Per-chain destination allowlist |
-| 8 | Native value restriction | Blocks native currency transfers unless enabled |
-| 9 | Calldata format validation | Hex prefix, even length |
-| 10 | Address validation | Via viem utilities |
-| 11 | Payload size limit | Configurable max body size |
-| 12 | Rate limiting | Per-IP sliding window |
-| 13-14 | Structured logging + safe errors | No stack traces, no secrets in logs |
-| 15 | RPC from config only | Client cannot choose RPC |
-| 16-19 | Gas estimation, fee strategy, nonce, confirmation | Fully automated |
-
-### Signer Abstraction
-
-The signer backend is decoupled behind a `SignerAdapter` interface. Currently implements:
-
-- **`PrivateKeySigner`** — signs with a raw private key
-
-Future backends can be added without changing the public API:
-
-- AWS KMS
-- Fireblocks
-- Smart Accounts
-- MPC
-
 ## API
 
 ### `POST /v1/evm/execute`
